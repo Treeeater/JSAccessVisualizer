@@ -1,0 +1,77 @@
+/* li.right {
+	background: url('icon/rightT.png') no-repeat left top;
+	height: 34px;
+	padding-left: 44px;
+} */
+
+ul.no_bullet {
+	list-style-type: none;
+	padding: 0;
+	margin: 0;
+}
+
+li{
+	cursor: default;
+}
+
+span.displayall{
+	cursor: pointer;
+	margin-left: 20px;
+	color: red;
+	display: inline-block;
+	background-color: transparent;
+}
+
+span.displayall.clicked{
+	background-color: hsla(191, 85%, 65%, 0.5);
+}
+
+.category {
+	margin-left: 10px;
+	font-size: 18px;
+	display: inline-block;
+}
+
+.recordEntry{
+	margin-left: 20px;
+	font-size: 14px;
+	margin-top: 5px;
+	border-color: transparent;
+	border-style: solid;
+    border-width: medium;
+}
+
+.recordEntry.hovered{
+	background-color: hsla(290,60%,70%,0.3);
+	font-size: 14px;
+	border-color: transparent;
+	border-style: solid;
+    border-width: medium;
+}
+
+.recordEntry.selected{
+	border-style: solid;
+    border-width: medium;
+	border-color: blue;
+	font-size: 14px;
+}
+
+.recordEntry.hovered.NOTFOUND{
+	background-color: hsla(360, 35%, 65%, 0.88);
+	font-size: 14px;
+	border-color: transparent;
+	border-style: solid;
+    border-width: medium;
+}
+
+.recordEntry.hovered.NOTVISIBLE{
+	background-color: hsla(256, 55%, 65%, 1);
+	font-size: 14px;
+	border-color: transparent;
+	border-style: solid;
+    border-width: medium;
+}
+
+.domain{
+	font-size:20px;
+}

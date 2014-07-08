@@ -1,0 +1,32 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+	<link rel="stylesheet" type="text/css" href="sidebar.css">
+	<link rel="stylesheet" href="jquery-ui/jquery-ui.css">
+	<script type="text/javascript" src="jquery-2.1.1.min.js"></script>
+	<script src="jquery-ui/jquery-ui.js"></script>
+	<script>
+	$(function(){
+		$(document).tooltip();
+	});
+	</script>
+	<style>
+	label {
+		display: inline-block;
+		width: 5em;
+	}
+	</style>
+	</head>
+	<body>
+		<h2 align="center">Visualizer v0.9</h2>
+		<hr/>
+		<div style="text-align:center; margin-top:20px;">
+			<button onclick='pickFile();'>Choose File</button>
+		</div>
+		<hr/>
+		<ul id="mainList" class="no_bullet">
+		</ul>
+		<script type="text/javascript" src="dataProcessing.js"></script>
+		<script type="text/javascript" src="sidebar.js"></script>
+	</body>
+</html>

@@ -1,0 +1,1 @@
+..\addon-sdk-1.16\bin\activate.bat
