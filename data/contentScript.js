@@ -47,6 +47,7 @@ function display(xpath, color){
 		self.port.emit("elementNotVisible",xpath);
 		return;
 	}
+	somethingToDisplay = true;
 	var color = color;
 	var offset = $(element).offset();
 	var e = document.createElement('div');
@@ -88,8 +89,13 @@ self.port.on("getContent", function(msg){
 
 self.port.on("renderAll", function(records){
 	records = records.split("_");
+	somethingToDisplay = false;
 	for (var i = 0; i < records.length; i++){
 		display(records[i], "hsla(191, 85%, 65%, 0.5)");
+	}
+	if (!somethingToDisplay){
+		alert('There is no visible element in this category to display!');
+		self.port.emit("nothingToDisplayAll","");
 	}
 });
 

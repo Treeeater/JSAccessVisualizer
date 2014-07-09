@@ -208,6 +208,10 @@ addon.port.on("NOTVISIBLE", function(xpath){
 	$("li[xpath='"+xpath+"']").addClass('NOTVISIBLE');
 });
 
+addon.port.on("nothingToDisplayAll", function(){
+	//from the content scripts, we already alerted the user, for now we don't do anything here.
+});
+
 addon.port.on("CONTENT", function(innerHTML){
 	//from the content scripts, we already alerted the user, for now we don't do anything here.
 });
