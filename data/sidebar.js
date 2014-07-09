@@ -97,6 +97,9 @@ function toggleGeneric(event){
 		collapseGeneric(event);
 		return false;
 	}
+	if (wrapped.is("[text]")){
+		return false;
+	}
 	if (selectedElement != null && event.target != selectedElement){
 		//if we have already selected an element and now we click on a new element
 		if ($(selectedElement).is("[c]")){
@@ -186,12 +189,22 @@ addon.port.on("fileRawData", function(msg){
 });
 
 addon.port.on("NOTFOUND", function(xpath){
-	xpath = xpath.substr(8);
+	var xpath = xpath.substr(8);
 	$("li[xpath='"+xpath+"']").addClass('NOTFOUND');
 });
 
+addon.port.on("replyWithContent", function(msg){
+	var xpath = msg.xpath.substr(8);
+	var text = msg.text;
+	$("li[xpath='"+xpath+"']").attr('title',text).attr('text',text);
+	//trigger this two events is to make jquery ui render the new tooltip.
+	//This is not a perfect solution, as if the user moves mouse too fast, the real user's mouseleave event occurs before the synthesized mouseenter event, therefore the tooltip stays there until the user moves her mouse back in and out again.
+	$("li[xpath='"+xpath+"']").trigger('mouseleave');
+	$("li[xpath='"+xpath+"']").trigger('mouseenter');
+});
+
 addon.port.on("NOTVISIBLE", function(xpath){
-	xpath = xpath.substr(8);
+	var xpath = xpath.substr(8);
 	$("li[xpath='"+xpath+"']").addClass('NOTVISIBLE');
 });
 

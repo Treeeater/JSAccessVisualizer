@@ -19,6 +19,22 @@ self.port.on("scroll", function(msg){
 
 function display(xpath, color){
 	var xpath = "/html[1]"+xpath;
+	var ti = xpath.indexOf('#text');
+	if (ti != -1){
+		//text node, don't scroll into view or highlight, just return text content.
+		var temp = xpath.substr(ti);
+		if (temp.indexOf('/') != -1) return;		//impossible (why would a text child have any children?
+		temp = temp.substr(6,temp.indexOf(']')-1);
+		var truncatedXPath = xpath.substr(0, ti - 1);
+		var ele = getElementByXpath(truncatedXPath);
+		if (ele == null){
+			self.port.emit("elementNotFound",xpath);
+			return;
+		}
+		var text = $(ele).contents().filter(function() {return this.nodeType === 3;})[parseInt(temp)-1].nodeValue;
+		self.port.emit('replyWithContent', {text:text, xpath:xpath});
+		return;
+	}
 	var element = getElementByXpath(xpath);
 	if (element == null){
 		self.port.emit("elementNotFound",xpath);
@@ -54,6 +70,7 @@ self.port.on("display", function(msg){
 
 self.port.on("stop", function(msg){
 	var xpath = "/html[1]"+msg.xpath;
+	if (xpath.indexOf('#text')!=-1) return;
 	var element = getElementByXpath(xpath);
 	if (element != null){
 		$("div[visualizer_overlay='"+xpath+"']").remove();
