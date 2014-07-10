@@ -22,7 +22,9 @@ function RecordsPerSite(url){
 		ret = ret && (s.indexOf('GetParent')!=0);
 		ret = ret && (s.indexOf('GetFirstChild')!=0);
 		ret = ret && (s.indexOf('GetNextSibling')!=0);
+		ret = ret && (s.indexOf('GetPreviousSibling')!=0);
 		ret = ret || (s.indexOf('Scroll') == 0);
+		ret = ret || (s.indexOf('Client') == 0);
 		ret = ret || (s.indexOf('Attributes') == 0);
 		return ret;
 	};
@@ -155,7 +157,7 @@ function preprocess(data){
 		curData = curData.substr(curData.indexOf('\n')+1);
 		curData = curData.substr(0,curData.length - 7);
 		recordsRaw = curData.split("_t: ");
-		var records = [];
+		if (!r.recordsPerDomain.hasOwnProperty(domain)) r.recordsPerDomain[domain] = [];
 		for (j = 0; j < recordsRaw.length; j++){
 			var recordRaw = recordsRaw[j];
 			if (recordRaw == "") continue;
@@ -164,9 +166,8 @@ function preprocess(data){
 			var resource = recordRaw.substr(0, recordRaw.indexOf("\r\n"));
 			var additional = recordRaw.substr(resource.length + 6).chomp();
 			var record = new Record(times, resource, additional);
-			records.push(record);
+			r.recordsPerDomain[domain].push(record);
 		}
-		r.recordsPerDomain[domain] = records;
 	}
 	return r;
 }
