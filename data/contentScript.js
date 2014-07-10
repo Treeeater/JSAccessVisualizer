@@ -19,21 +19,27 @@ self.port.on("scroll", function(msg){
 
 function display(xpath, color){
 	var xpath = "/html[1]"+xpath;
+	var xpathBeforeTruncation = xpath;
 	var ti = xpath.indexOf('#text');
 	if (ti != -1){
-		//text node, don't scroll into view or highlight, just return text content.
-		var temp = xpath.substr(ti);
-		if (temp.indexOf('/') != -1) return;		//impossible (why would a text child have any children?
-		temp = temp.substr(6,temp.indexOf(']')-1);
+		//text node
 		var truncatedXPath = xpath.substr(0, ti - 1);
 		var ele = getElementByXpath(truncatedXPath);
 		if (ele == null){
 			self.port.emit("elementNotFound",xpath);
 			return;
 		}
-		var text = $(ele).contents().filter(function() {return this.nodeType === 3;})[parseInt(temp)-1].nodeValue;
-		self.port.emit('replyWithContent', {text:text, xpath:xpath});
-		return;
+		if (ele.childNodes.length != 1) {
+			//parent node has more than one child, don't scroll into view or highlight, just return text content.
+			var temp = xpath.substr(ti);
+			if (temp.indexOf('/') != -1) return;		//impossible (why would a text child have any children?
+			temp = temp.substr(6,temp.indexOf(']')-1);	//get index of this text element
+			var text = $(ele).contents().filter(function() {return this.nodeType === 3;})[parseInt(temp)-1].nodeValue;
+			self.port.emit('replyWithContent', {text:text, xpath:xpath});
+			return;
+		}
+		//if its parent only has this textnode as child, highlight its parent.
+		xpath = truncatedXPath;
 	}
 	var element = getElementByXpath(xpath);
 	if (element == null){
@@ -61,7 +67,7 @@ function display(xpath, color){
 	e.style.borderStyle = "solid";
 	e.style.borderWidth = "medium";
 	e.style.borderColor = "blue";
-	e.setAttribute('visualizer_overlay',xpath);
+	e.setAttribute('visualizer_overlay',xpathBeforeTruncation);		//here this is important to let remove function remove the correct overlay.
 	document.body.appendChild(e);
 }
 
@@ -71,11 +77,7 @@ self.port.on("display", function(msg){
 
 self.port.on("stop", function(msg){
 	var xpath = "/html[1]"+msg.xpath;
-	if (xpath.indexOf('#text')!=-1) return;
-	var element = getElementByXpath(xpath);
-	if (element != null){
-		$("div[visualizer_overlay='"+xpath+"']").remove();
-	}
+	$("div[visualizer_overlay='"+xpath+"']").remove();
 });
 
 self.port.on("getContent", function(msg){

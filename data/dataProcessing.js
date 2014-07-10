@@ -93,9 +93,6 @@ function RecordsPerSite(url){
 					//XPath entry
 					if (filterContentRecords(record.resource, record.additional)){
 						//this is a content entry, which excludes get and set.
-						
-						//if this is a text node, only record its parent.
-						record.resource = record.resource.replace(/\/#text\[\d+\]$/, '');
 						//if this node is already contained in another node, don't push this.
 						if (wasCoveredBefore(record.resource, domain)) continue;
 						removeDuplicates(record.resource, domain);
