@@ -6,6 +6,11 @@ function pickFile(){
 	$("#mainList").html("");
 }
 
+function obtainNow(){
+	addon.port.emit("obtainNow");
+	$("#mainList").html("");
+}
+
 function RecordsPerSite(url){
 	var that = this;
 	
@@ -142,26 +147,27 @@ String.prototype.chomp = function(){
 }
 
 function preprocess(data){
-	var url = data.substr(5, data.indexOf('\n---')-5);
-	data = data.substr(data.indexOf('---')+5);		//get rid of the first url declaration.
-	data = data.replace(/URL:\s.*?\r\n/g,'');			//get rid of additional url declarations (sometimes page refreshes themselves)
+	data = data.replace(/\r/g,'');					//get rid of file specific \r
+	var url = data.substr(5, data.indexOf('\n---')-4);
+	data = data.substr(data.indexOf('---')+4);		//get rid of the first url declaration.
+	data = data.replace(/URL:\s.*?\n/g,'');			//get rid of additional url declarations (sometimes page refreshes themselves)
 	var r = new RecordsPerSite(url);
 	domains = data.split("tpd: ");
 	for (i = 0; i < domains.length; i++){
 		var curData = domains[i];
 		if (curData == "") continue;
-		var domain = curData.substr(0, curData.indexOf(":\r\n"));
+		var domain = curData.substr(0, curData.indexOf(":\n"));
 		curData = curData.substr(curData.indexOf('\n')+1);
-		curData = curData.substr(0,curData.length - 7);
+		curData = curData.substr(0,curData.length - 6);
 		recordsRaw = curData.split("_t: ");
 		if (!r.recordsPerDomain.hasOwnProperty(domain)) r.recordsPerDomain[domain] = [];
 		for (j = 0; j < recordsRaw.length; j++){
 			var recordRaw = recordsRaw[j];
 			if (recordRaw == "") continue;
-			var times = recordRaw.substr(0, recordRaw.indexOf("\r\n"));
-			recordRaw = recordRaw.substr(times.length + 6);
-			var resource = recordRaw.substr(0, recordRaw.indexOf("\r\n"));
-			var additional = recordRaw.substr(resource.length + 6).chomp();
+			var times = recordRaw.substr(0, recordRaw.indexOf("\n"));
+			recordRaw = recordRaw.substr(times.length + 5);
+			var resource = recordRaw.substr(0, recordRaw.indexOf("\n"));
+			var additional = recordRaw.substr(resource.length + 5).chomp();
 			var record = new Record(times, resource, additional);
 			r.recordsPerDomain[domain].push(record);
 		}

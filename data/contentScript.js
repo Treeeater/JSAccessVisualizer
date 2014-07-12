@@ -6,6 +6,10 @@ self.port.on("nav", function(msg){
 	document.location = msg;
 });
 
+self.port.on("obtainNow", function(){
+	self.port.emit("obtained",document.visualizerOutputToString());
+});
+
 self.port.on("scroll", function(msg){
 	var xpath = "/html[1]"+msg.xpath;
 	var element = getElementByXpath(xpath);

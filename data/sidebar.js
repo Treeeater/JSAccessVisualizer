@@ -178,9 +178,9 @@ function hoverOut(event){
 }
 
 addon.port.on("fileRawData", function(msg){
-	fileRawData = msg;
+	fileRawData = msg.data;
 	preprocessed = preprocess(fileRawData);
-	addon.port.emit("nav",preprocessed.URL);
+	if (msg.nav == "true") addon.port.emit("nav",preprocessed.URL);
 	processed = preprocessed.compressXPATH();
 	for (var domain in preprocessed.recordsPerDomain){
 		$("#mainList").append("<li status='collapsed' class='domain'>&#9658; " + domain + "</li><hr/>");		//9660 is down pointing
