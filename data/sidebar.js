@@ -213,9 +213,12 @@ var reportOutputToFile = function(){
 	else addon.port.emit("setOutputToFile","false");
 }
 
-$("#outputFileCB").change(reportOutputToFile) 
+addon.port.on("updateSBCBStatus", function(msg){
+	$("#outputFileCB").prop('checked', (msg === 'true'));
+	$("#outputFileCB").change(reportOutputToFile);
+});
 
-addon.port.on("requestOutputToFile", reportOutputToFile);
+addon.port.emit("updateSBCBStatus","");
 
 addon.port.on("nothingToDisplayAll", function(){
 	//from the content scripts, we already alerted the user, for now we don't do anything here.
