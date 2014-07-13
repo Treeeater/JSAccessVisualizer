@@ -126,6 +126,7 @@ function toggleGeneric(event){
 			addon.port.emit('renderAll', records.map(function(rec){return rec.resource;}).join("_"));
 		}
 		else {
+			wrapped.removeClass('NOTVISIBLE');		//if it is invisible.
 			addon.port.emit('removeAll', "");
 			selectedElement = null;
 		}
@@ -220,10 +221,17 @@ addon.port.on("updateSBCBStatus", function(msg){
 
 addon.port.emit("updateSBCBStatus","");
 
+addon.port.on("clearSBContent", function(){
+	$("#mainList").html("");
+});
+
 addon.port.on("nothingToDisplayAll", function(){
 	//from the content scripts, we already alerted the user, for now we don't do anything here.
+	$(selectedElement).addClass("NOTVISIBLE");
 });
 
 addon.port.on("CONTENT", function(innerHTML){
 	//from the content scripts, we already alerted the user, for now we don't do anything here.
 });
+
+$("body").disableSelection();

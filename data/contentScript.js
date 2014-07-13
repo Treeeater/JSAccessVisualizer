@@ -102,7 +102,7 @@ self.port.on("renderAll", function(records){
 		display(records[i], "hsla(191, 85%, 65%, 0.5)");
 	}
 	if (!somethingToDisplay){
-		alert('There is no visible element in this category to display!');
+		//alert('There is no visible element in this category to display!');
 		self.port.emit("nothingToDisplayAll","");
 	}
 });
@@ -120,6 +120,7 @@ window.addEventListener('beforeunload',function(){
 	if (outputToFile) {
 		document.visualizerOutputToFile();
 	}
+	self.port.emit("clearSBContent","");
 });
 
 self.port.emit("requestOutputToFile","");			//request update outputToFile variable.

@@ -26,6 +26,10 @@ span.displayall.clicked{
 	background-color: hsla(191, 85%, 65%, 0.5);
 }
 
+span.displayall.clicked.NOTVISIBLE{
+	background-color: hsla(256, 55%, 65%, 0.6);
+}
+
 .category {
 	margin-left: 10px;
 	font-size: 18px;
@@ -65,7 +69,7 @@ span.displayall.clicked{
 }
 
 .recordEntry.hovered.NOTVISIBLE{
-	background-color: hsla(256, 55%, 65%, 1);
+	background-color: hsla(256, 55%, 65%, 0.6);
 	font-size: 14px;
 	border-color: transparent;
 	border-style: solid;
