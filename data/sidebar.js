@@ -208,6 +208,15 @@ addon.port.on("NOTVISIBLE", function(xpath){
 	$("li[xpath='"+xpath+"']").addClass('NOTVISIBLE');
 });
 
+var reportOutputToFile = function(){
+	if ($("#outputFileCB").is(':checked')) addon.port.emit("setOutputToFile","true");
+	else addon.port.emit("setOutputToFile","false");
+}
+
+$("#outputFileCB").change(reportOutputToFile) 
+
+addon.port.on("requestOutputToFile", reportOutputToFile);
+
 addon.port.on("nothingToDisplayAll", function(){
 	//from the content scripts, we already alerted the user, for now we don't do anything here.
 });

@@ -1,3 +1,5 @@
+var outputToFile = true;
+
 var getElementByXpath = function (path) {
     return document.evaluate(path, document, null, 9, null).singleNodeValue;
 };
@@ -108,3 +110,16 @@ self.port.on("renderAll", function(records){
 self.port.on("removeAll", function(msg){
 	$("div[visualizer_overlay]").remove();
 });
+
+self.port.on("setOutputToFile", function(msg){
+	//receive update outputToFile variable.
+	outputToFile = (msg==='true');
+});
+
+window.addEventListener('beforeunload',function(){
+	if (outputToFile) {
+		document.visualizerOutputToFile();
+	}
+});
+
+self.port.emit("requestOutputToFile","");			//request update outputToFile variable.
