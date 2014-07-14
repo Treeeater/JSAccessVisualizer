@@ -179,9 +179,14 @@ function hoverOut(event){
 }
 
 addon.port.on("fileRawData", function(msg){
+	$("#mainList").html("");
 	fileRawData = msg.data;
 	preprocessed = preprocess(fileRawData);
-	if (msg.nav == "true") addon.port.emit("nav",preprocessed.URL);
+	if (msg.nav == "true") {
+		addon.port.emit("nav",preprocessed.URL);
+		$("#outputFileCB").prop('checked', false);
+		addon.port.emit("setOutputToFile", "false");
+	}
 	processed = preprocessed.compressXPATH();
 	for (var domain in preprocessed.recordsPerDomain){
 		$("#mainList").append("<li status='collapsed' class='domain'>&#9658; " + domain + "</li><hr/>");		//9660 is down pointing

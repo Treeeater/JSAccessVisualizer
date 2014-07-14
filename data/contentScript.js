@@ -120,7 +120,7 @@ window.addEventListener('beforeunload',function(){
 	if (outputToFile) {
 		document.visualizerOutputToFile();
 	}
-	self.port.emit("clearSBContent","");
+	//self.port.emit("clearSBContent","");
 });
 
 self.port.emit("requestOutputToFile","");			//request update outputToFile variable.
