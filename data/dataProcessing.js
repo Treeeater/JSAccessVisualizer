@@ -158,7 +158,7 @@ function preprocess(data){
 		if (curData == "") continue;
 		var domain = curData.substr(0, curData.indexOf(":\n"));
 		curData = curData.substr(curData.indexOf('\n')+1);
-		curData = curData.substr(0,curData.length - 6);
+		curData = curData.substr(0,curData.length - 5);
 		recordsRaw = curData.split("_t: ");
 		if (!r.recordsPerDomain.hasOwnProperty(domain)) r.recordsPerDomain[domain] = [];
 		for (j = 0; j < recordsRaw.length; j++){
