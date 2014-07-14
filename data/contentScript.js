@@ -1,4 +1,5 @@
 var outputToFile = true;
+var clearContentUponNav = true;
 
 var getElementByXpath = function (path) {
     return document.evaluate(path, document, null, 9, null).singleNodeValue;
@@ -95,6 +96,10 @@ self.port.on("getContent", function(msg){
 	}
 });
 
+self.port.on("setClearContent", function(msg){
+	clearContentUponNav = msg;
+});
+
 self.port.on("renderAll", function(records){
 	records = records.split("_");
 	somethingToDisplay = false;
@@ -116,11 +121,18 @@ self.port.on("setOutputToFile", function(msg){
 	outputToFile = (msg==='true');
 });
 
+self.port.on("outputToFile", function(msg){
+	document.visualizerOutputToFile();
+});
+
 window.addEventListener('beforeunload',function(){
 	if (outputToFile) {
 		document.visualizerOutputToFile();
 	}
-	//self.port.emit("clearSBContent","");
+	if (clearContentUponNav){
+		self.port.emit("clearSBContent","");
+	}
+	clearContentUponNav = true;
 });
 
 self.port.emit("requestOutputToFile","");			//request update outputToFile variable.

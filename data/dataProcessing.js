@@ -6,6 +6,13 @@ function pickFile(){
 	$("#mainList").html("");
 }
 
+function outputToFile(){
+	addon.port.emit("outputToFile","");
+	//diable checkbox automatically
+	$("#outputFileCB").prop('checked', false);
+	addon.port.emit("setOutputToFile", "false");
+}
+
 function obtainNow(){
 	addon.port.emit("obtainNow");
 	$("#mainList").html("");
@@ -147,6 +154,7 @@ String.prototype.chomp = function(){
 }
 
 function preprocess(data){
+	fileRawData = data;
 	data = data.replace(/\r/g,'');					//get rid of file specific \r
 	var url = data.substr(5, data.indexOf('\n---')-4);
 	data = data.substr(data.indexOf('---')+4);		//get rid of the first url declaration.
