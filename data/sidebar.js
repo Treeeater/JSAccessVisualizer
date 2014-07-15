@@ -38,8 +38,8 @@ function expandCategoryList(ele){
 }
 
 function insertCategories(ele, domain){
-	if (processed["contentRecords"][domain].length != 0)
-		$(ele).append("<br/><li status='collapsed' class='category' url="+domain+">&#9658; contentRecords<span class='displayall' c='contentRecords'>DisplayAll</span></li>");
+	if (processed["getContentRecords"][domain].length != 0)
+		$(ele).append("<br/><li status='collapsed' class='category' url="+domain+">&#9658; getContentRecords<span class='displayall' c='getContentRecords'>DisplayAll</span></li>");
 	if (processed["setterRecords"][domain].length != 0)
 		$(ele).append("<br/><li status='collapsed' class='category' url="+domain+">&#9658; setterRecords<span class='displayall' c='setterRecords'>DisplayAll</span></li>");
 	if (processed["getterRecords"][domain].length != 0)

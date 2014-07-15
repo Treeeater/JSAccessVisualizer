@@ -55,14 +55,14 @@ function display(xpath, color){
 	}
 	var h = element.offsetHeight;
 	var w = element.offsetWidth;
-	if (h == 0 || w == 0){
+	var offset = $(element).offset();
+	if (h == 0 || w == 0 || offset.left < 0 || offset.top < 0){
 		//invisible element, notify and don't do anything
 		self.port.emit("elementNotVisible",xpath);
 		return;
 	}
-	somethingToDisplay = true;
 	var color = color;
-	var offset = $(element).offset();
+	somethingToDisplay = true;
 	var e = document.createElement('div');
 	e.style.position = "absolute";
 	e.style.left = offset.left.toString() + "px";

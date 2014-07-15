@@ -25,7 +25,7 @@ function RecordsPerSite(url){
 	this.recordsPerDomain = {};			//map key:domain, value: raw array of Record
 	this.setterRecords = {};			//Stores XPATH records.  Map, key:domain, value: compressed (parent covering for all children node) array of setter record.
 	this.getterRecords = {};
-	this.contentRecords = {};
+	this.getContentRecords = {};
 	this.specialRecords = {};			//Stores all none XPATH records
 	
 	var filterGetRecords = function(s){
@@ -48,8 +48,9 @@ function RecordsPerSite(url){
 		return ret;
 	};
 	
-	var filterContentRecords = function(r, a){
+	var filterGetgetContentRecords = function(r, a){
 		a = a.toLowerCase();
+		if (a.indexOf('get')==-1) return false;
 		//given the additional string, return if this is a get access
 		var ret = (a.indexOf('innerhtml') != -1) || (a.indexOf('outerhtml') != -1) || (a.indexOf('text') != -1);
 		if (r.toLowerCase().indexOf('#text') != -1) {
@@ -59,35 +60,49 @@ function RecordsPerSite(url){
 		return ret;
 	};
 	
-	var removeDuplicates = function(r, d){
-		for (var i = 0; i < that.getterRecords[d].length; i++){
-			if (that.getterRecords[d][i].resource.indexOf(r) == 0){
-				//newly added resource r already covers this recorded resource, therefore we remove this item.
-				that.getterRecords[d].splice(i, 1);
-				i--;		//fix the pointer.
+	var removeDuplicates = function(mode, r, d){
+		if (mode == "getContent"){
+			for (var i = 0; i < that.getterRecords[d].length; i++){
+				if (that.getterRecords[d][i].resource.indexOf(r) == 0){
+					//newly added resource r already covers this recorded resource, therefore we remove this item.
+					that.getterRecords[d].splice(i, 1);
+					i--;		//fix the pointer.
+				}
+			}
+			for (var i = 0; i < that.getContentRecords[d].length; i++){
+				if (that.getContentRecords[d][i].resource.indexOf(r) == 0){
+					//newly added resource r already covers this recorded resource, therefore we remove this item.
+					that.getContentRecords[d].splice(i, 1);
+					i--;		//fix the pointer.
+				}
 			}
 		}
-		for (var i = 0; i < that.setterRecords[d].length; i++){
-			if (that.setterRecords[d][i].resource.indexOf(r) == 0){
-				//newly added resource r already covers this recorded resource, therefore we remove this item.
-				that.setterRecords[d].splice(i, 1);
-				i--;		//fix the pointer.
-			}
-		}
-		for (var i = 0; i < that.contentRecords[d].length; i++){
-			if (that.contentRecords[d][i].resource.indexOf(r) == 0){
-				//newly added resource r already covers this recorded resource, therefore we remove this item.
-				that.contentRecords[d].splice(i, 1);
-				i--;		//fix the pointer.
+		else {
+			//mode == "setter"
+			for (var i = 0; i < that.setterRecords[d].length; i++){
+				if (that.setterRecords[d][i].resource.indexOf(r) == 0){
+					//newly added resource r already covers this recorded resource, therefore we remove this item.
+					that.setterRecords[d].splice(i, 1);
+					i--;		//fix the pointer.
+				}
 			}
 		}
 	};
 	
-	var wasCoveredBefore = function(r, d){
-		for (var i = 0; i < that.contentRecords[d].length; i++){
-			if (r.indexOf(that.contentRecords[d][i].resource) == 0) return true;
+	var wasCoveredBefore = function(mode, r, d){
+		if (mode == "getContent"){
+			for (var i = 0; i < that.getContentRecords[d].length; i++){
+				if (r.indexOf(that.getContentRecords[d][i].resource) == 0) return true;
+			}
+			return false;
 		}
-		return false;
+		else {
+			//mode == "setter"
+			for (var i = 0; i < that.setterRecords[d].length; i++){
+				if (r.indexOf(that.setterRecords[d][i].resource) == 0) return true;
+			}
+			return false;
+		}
 	};
 	
 	this.compressXPATH = function(){
@@ -95,36 +110,33 @@ function RecordsPerSite(url){
 			var records = that.recordsPerDomain[domain];
 			that.getterRecords[domain] = [];
 			that.setterRecords[domain] = [];
-			that.contentRecords[domain] = [];
+			that.getContentRecords[domain] = [];
 			that.specialRecords[domain] = [];
 			var pushedSpecialEntry = [];
-			var pushedSetterEntry = [];
 			var pushedGetterEntry = [];
 			for (var i = 0; i < records.length; i++){
 				var record = records[i];
 				if (record.resource.indexOf('/') == 0){
 					//XPath entry
-					if (filterContentRecords(record.resource, record.additional)){
-						//this is a content entry, which excludes get and set.
+					if (filterGetgetContentRecords(record.resource, record.additional)){
+						//this is a content getter entry.
 						//if this node is already contained in another node, don't push this.
-						if (wasCoveredBefore(record.resource, domain)) continue;
-						removeDuplicates(record.resource, domain);
-						that.contentRecords[domain].push(record);
+						if (wasCoveredBefore("getContent",record.resource, domain)) continue;
+						removeDuplicates("getContent",record.resource, domain);
+						that.getContentRecords[domain].push(record);
+					}
+					else if (filterSetRecords(record.additional)){
+						//this is a setter entry, which is *NOT* a content getter entry.
+						if (wasCoveredBefore("setter",record.resource, domain)) continue;
+						removeDuplicates("setter",record.resource, domain);
+						that.setterRecords[domain].push(record);
 					}
 					else if (filterGetRecords(record.additional)){
-						//this is a get entry
-						if (wasCoveredBefore(record.resource, domain)) continue;
+						//this is a get entry that is *NOT* a content getter or setter.
+						if (wasCoveredBefore("getContent",record.resource, domain)) continue;
 						if (pushedGetterEntry.indexOf(record.resource) == -1){
 							that.getterRecords[domain].push(record);
 							pushedGetterEntry.push(record.resource);
-						}
-					}
-					else if (filterSetRecords(record.additional)){
-						//this is a set entry
-						if (wasCoveredBefore(record.resource, domain)) continue;
-						if (pushedSetterEntry.indexOf(record.resource) == -1){
-							that.setterRecords[domain].push(record);
-							pushedSetterEntry.push(record.resource);
 						}
 					}
 				}
