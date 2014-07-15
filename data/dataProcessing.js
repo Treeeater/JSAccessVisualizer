@@ -44,6 +44,7 @@ function RecordsPerSite(url){
 	var filterSetRecords = function(s){
 		//given the additional string, return if this is a get access
 		var ret = (s.indexOf('Set') == 0);
+		ret = ret || (s.indexOf('Remove') == 0);
 		return ret;
 	};
 	
