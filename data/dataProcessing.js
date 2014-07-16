@@ -154,10 +154,11 @@ function RecordsPerSite(url){
 	}
 }
 
-function Record(t, r, a){
+function Record(t, r, a, rw){
 	this.times = t;
 	this.resource = r;
 	this.additional = a;
+	this.resourceWID = rw;
 }
 
 String.prototype.chomp = function(){
@@ -188,8 +189,14 @@ function preprocess(data){
 			var times = recordRaw.substr(0, recordRaw.indexOf("\n"));
 			recordRaw = recordRaw.substr(times.length + 5);
 			var resource = recordRaw.substr(0, recordRaw.indexOf("\n"));
+			var resourceWID = "";
+			var sp = resource.split('|');
+			if (sp[0] != resource){
+				resource = sp[0];
+				resourceWID = sp[1];
+			}
 			var additional = recordRaw.substr(resource.length + 5).chomp();
-			var record = new Record(times, resource, additional);
+			var record = new Record(times, resource, additional, resourceWID);
 			r.recordsPerDomain[domain].push(record);
 		}
 	}
