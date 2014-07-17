@@ -205,13 +205,13 @@ addon.port.on("replyWithContent", function(msg){
 	$("li[xpath='"+xpath+"']").attr('title',text).attr('text',text);
 	//trigger this two events is to make jquery ui render the new tooltip.
 	//This is not a perfect solution, as if the user moves mouse too fast, the real user's mouseleave event occurs before the synthesized mouseenter event, therefore the tooltip stays there until the user moves her mouse back in and out again.
-	$("li[xpath='"+xpath+"']").trigger('mouseleave');
-	$("li[xpath='"+xpath+"']").trigger('mouseenter');
+	$('li[xpath="'+xpath+'"]').trigger('mouseleave');
+	$('li[xpath="'+xpath+'"]').trigger('mouseenter');
 });
 
 addon.port.on("NOTVISIBLE", function(xpath){
 	var xpath = xpath.substr(8);
-	$("li[xpath='"+xpath+"']").addClass('NOTVISIBLE');
+	$('li[xpath="'+xpath+'"]').addClass('NOTVISIBLE');
 });
 
 var reportOutputToFile = function(){

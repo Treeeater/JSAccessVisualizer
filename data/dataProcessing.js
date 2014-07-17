@@ -18,6 +18,21 @@ function obtainNow(){
 	$("#mainList").html("");
 }
 
+function generalizeModel(){
+	generalized = processed.generalizeModel("content");
+	generalized = processed.generalizeModel("setter");
+	addon.port.emit('removeAll', "");
+	$("#mainList").html("");
+	for (var domain in generalized.recordsPerDomain){
+		generalized.getContentRecords[domain] = generalized.getContentRecordsG[domain];
+		generalized.setterRecords[domain] = generalized.setterRecordsG[domain];
+	}
+	for (var domain in generalized.recordsPerDomain){
+		$("#mainList").append("<li status='collapsed' class='domain'>&#9658; " + domain + "</li><hr/>");		//9660 is down pointing
+	}
+	$("li").click(toggleGeneric);
+}
+
 function RecordsPerSite(url){
 	var that = this;
 	
@@ -27,6 +42,9 @@ function RecordsPerSite(url){
 	this.getterRecords = {};
 	this.getContentRecords = {};
 	this.specialRecords = {};			//Stores all none XPATH records
+	
+	this.getContentRecordsG = {};		//generalized model
+	this.setterRecordsG = {};
 	
 	var filterGetRecords = function(s){
 		//given the additional string, return if this is a get access
@@ -45,6 +63,8 @@ function RecordsPerSite(url){
 		//given the additional string, return if this is a get access
 		var ret = (s.indexOf('Set') == 0);
 		ret = ret || (s.indexOf('Remove') == 0);
+		ret = ret || (s.indexOf('InsertBefore') == 0);
+		ret = ret || (s.indexOf('AppendChild') == 0);
 		return ret;
 	};
 	
@@ -53,10 +73,6 @@ function RecordsPerSite(url){
 		if (a.indexOf('get')==-1) return false;
 		//given the additional string, return if this is a get access
 		var ret = (a.indexOf('innerhtml') != -1) || (a.indexOf('outerhtml') != -1) || (a.indexOf('text') != -1);
-		if (r.toLowerCase().indexOf('#text') != -1) {
-			//this is a text node. GetNodeValue also is a content getter
-			ret = ret || (a.indexOf('getnodevalue')!=-1);
-		}
 		return ret;
 	};
 	
@@ -118,6 +134,15 @@ function RecordsPerSite(url){
 				var record = records[i];
 				if (record.resource.indexOf('/') == 0){
 					//XPath entry
+					if (record.resource.indexOf('#text')!=-1){
+						//text node, just remove this #text if the access is g/setWholeText, g/setNodeValue, otherwise skip this.
+						if (record.additional.indexOf('WholeText')!=-1 || record.additional.indexOf('NodeValue')!=-1){
+							//get rid of the #text
+							record.resource = record.resource.split("/");
+							record.resource.splice(-1,1);
+							record.resource = record.resource.join("/");
+						}
+					}
 					if (filterGetgetContentRecords(record.resource, record.additional)){
 						//this is a content getter entry.
 						//if this node is already contained in another node, don't push this.
@@ -147,6 +172,75 @@ function RecordsPerSite(url){
 						that.specialRecords[domain].push(record);
 						pushedSpecialEntry.push(record.resource + record.additional);
 					}
+				}
+			}
+		}
+		return that;
+	}
+
+	this.generalizeModel = function(mode){
+		var iterations = 3;
+		var commonParents = [];
+		var commonParent;
+		var a;
+		var b;
+		var temp;
+		if (typeof processed == 'undefined') {
+			alert("select an input file first!");
+			return that;
+		}
+		if (mode == "content") {
+			originalRecords = that.getContentRecords;
+			targetRecords = that.getContentRecordsG;
+		}
+		else {
+			originalRecords = that.setterRecords;
+			targetRecords = that.setterRecordsG;
+		}
+		for (var domain in that.recordsPerDomain){
+			targetRecords[domain] = originalRecords[domain].slice(0);
+			for (var iter = 0; iter < iterations; iter++){
+				commonParents = [];
+				for (var i = 0; i < targetRecords[domain].length; i++){
+					for (var j = 0; j < targetRecords[domain].length; j++){
+						//pairwise common parent finding.
+						if (i == j) continue;
+						a = targetRecords[domain][i].resource;
+						b = targetRecords[domain][j].resource;
+						commonParent = "/BODY[1]";
+						while (true){
+							temp = a.substr(commonParent.length + 1);
+							if (temp == "" || temp.indexOf('/')==-1) break;
+							temp = temp.substr(0, temp.indexOf('/'));
+							if (a.indexOf(commonParent + "/" + temp)!=0 || b.indexOf(commonParent + "/" + temp)!=0) break;
+							commonParent = commonParent + "/" + temp;
+						}
+						if (commonParent == "/BODY[1]") continue;					//common parents are root, useless.
+						if (commonParents.indexOf(commonParent)!=-1) continue;		//no duplicate
+						commonParents.push(commonParent);
+					}
+				}
+				//get the deepest common parents
+				var deep = -1;
+				for (var i = 0; i < commonParents.length; i++){
+					temp = commonParents[i].split("/").length;
+					if (deep < temp) deep = temp;
+				}
+				if (deep == -1) break;
+				//for each deepest common parents, substitute their accessed children nodes with themselves
+				for (var i = 0; i < commonParents.length; i++){
+					temp = commonParents[i].split("/").length;
+					if (temp != deep) continue;
+					var collapsedNo = 0;
+					for (var j = 0; j < targetRecords[domain].length; j++){
+						if (targetRecords[domain][j].resource.indexOf(commonParents[i])==0){
+							targetRecords[domain].splice(j,1);
+							j--;
+							collapsedNo++;
+						}
+					}
+					//console.log("collapsed " + collapsedNo.toString() + " records in " + domain +"");
+					targetRecords[domain].push(new Record("1", commonParents[i], "", ""));
 				}
 			}
 		}
@@ -195,7 +289,7 @@ function preprocess(data){
 				resource = sp[0];
 				resourceWID = sp[1];
 			}
-			var additional = recordRaw.substr(resource.length + 5).chomp();
+			var additional = recordRaw.substr(resource.length + resourceWID.length + (resourceWID.length == 0 ? 0 : 1) + 5).chomp();
 			var record = new Record(times, resource, additional, resourceWID);
 			r.recordsPerDomain[domain].push(record);
 		}

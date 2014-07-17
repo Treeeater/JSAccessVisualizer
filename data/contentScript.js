@@ -84,7 +84,7 @@ self.port.on("display", function(msg){
 
 self.port.on("stop", function(msg){
 	var xpath = "/html[1]"+msg.xpath;
-	$("div[visualizer_overlay='"+xpath+"']").remove();
+	$('div[visualizer_overlay="'+xpath+'"]').remove();
 });
 
 self.port.on("getContent", function(msg){
