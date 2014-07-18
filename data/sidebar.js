@@ -1,4 +1,5 @@
 var selectedElement = null;
+var displayAllPressed = false;
 
 function htmlDecode(value) {
     if (value) {
@@ -15,11 +16,13 @@ function insertRecords(ele, domain, recordType){
 		var recordElement = document.createElement('li');
 		recordElement.setAttribute('status', 'unselected');
 		recordElement.setAttribute('class', 'recordEntry');
-		if (records[i].resource.length > 30){
-			recordElement.innerHTML = records[i].resource.substr(0,30)+"...";
-			recordElement.title = records[i].resource;
+		var textToDisplay = records[i].resource;
+		if (records[i].resourceWID != "") textToDisplay = records[i].resourceWID;
+		if (textToDisplay.length > 30){
+			recordElement.innerHTML = textToDisplay.substr(0,30)+"...";
+			recordElement.title = textToDisplay;
 		}
-		else recordElement.innerHTML = records[i].resource;
+		else recordElement.innerHTML = textToDisplay;
 		if (recordType != "specialRecords"){
 			recordElement.setAttribute('xpath', records[i].resource);
 			recordElement.addEventListener("mouseover", hoverIn, false);
@@ -60,9 +63,13 @@ function collapseGeneric(event){
 	if ($.contains(event.target, selectedElement)){
 		//toggle element if its parent is collapsed
 		if ($(selectedElement).is("[c]")){
-			addon.port.emit('removeAll', "");
-			$(selectedElement).removeClass('clicked');
-			selectedElement = null;
+			if ($(selectedElement).parent()[0] != $(event.target)[0]){
+				//only removeAll when displayall's domain is collapsed, but not the category.
+				displayAllPressed = false;
+				addon.port.emit('removeAll', "");
+				$(selectedElement).removeClass('clicked');
+				selectedElement = null;
+			}
 		}
 		else{
 			$(selectedElement).removeClass('selected hovered NOTFOUND NOTVISIBLE');
@@ -103,11 +110,13 @@ function toggleGeneric(event){
 	if (selectedElement != null && event.target != selectedElement){
 		//if we have already selected an element and now we click on a new element
 		if ($(selectedElement).is("[c]")){
+			displayAllPressed = false;
 			addon.port.emit('removeAll', "");
 			$(selectedElement).removeClass('clicked');
 			selectedElement = null;
 		}
 		else{
+			displayAllPressed = false;
 			$(selectedElement).removeClass('selected hovered NOTFOUND NOTVISIBLE');
 			$(selectedElement).attr('status', 'unselected');
 			sendToCS(selectedElement, "stop");
@@ -119,6 +128,7 @@ function toggleGeneric(event){
 		var c = wrapped.attr('c');
 		wrapped.toggleClass('clicked');
 		if (wrapped.hasClass('clicked')) {
+			displayAllPressed = true;
 			var domain = wrapped.parent().attr('url');
 			var records = processed[c][domain];
 			var xpaths = [];
@@ -126,6 +136,7 @@ function toggleGeneric(event){
 			addon.port.emit('renderAll', records.map(function(rec){return rec.resource;}).join("_"));
 		}
 		else {
+			displayAllPressed = false;
 			wrapped.removeClass('NOTVISIBLE');		//if it is invisible.
 			addon.port.emit('removeAll', "");
 			selectedElement = null;
@@ -147,6 +158,7 @@ function toggleGeneric(event){
 		sendToCS(event.target, "scroll");
 	}
 	else if (wrapped.attr('status') == 'selected'){
+		displayAllPressed = false;
 		wrapped.attr('status', 'unselected');
 		wrapped.removeClass('selected');
 		selectedElement = null;
@@ -166,6 +178,7 @@ function sendToCS(ele, mode, c){
 
 function hoverIn(event){
 	if ($(event.target).hasClass('selected')) return false;
+	if (displayAllPressed) return false;
 	$(event.target).addClass('hovered');
 	//send ajax to real page to display
 	sendToCS(event.target, "display", "hsla(290,60%,70%,0.5)");
@@ -173,13 +186,14 @@ function hoverIn(event){
 
 function hoverOut(event){
 	if ($(event.target).hasClass('selected')) return false;
+	if (displayAllPressed) return false;
 	$(event.target).removeClass('hovered NOTFOUND NOTVISIBLE');
 	//send ajax to real page to stop display
 	sendToCS(event.target, "stop");
 }
 
 addon.port.on("fileRawData", function(msg){
-	$("#mainList").html("");
+	resetContent();
 	fileRawData = msg.data;
 	preprocessed = preprocess(fileRawData);
 	if (msg.nav == "true") {
@@ -226,9 +240,7 @@ addon.port.on("updateSBCBStatus", function(msg){
 
 addon.port.emit("updateSBCBStatus","");
 
-addon.port.on("clearSBContent", function(){
-	$("#mainList").html("");
-});
+addon.port.on("clearSBContent", resetContent);
 
 addon.port.on("nothingToDisplayAll", function(){
 	//from the content scripts, we already alerted the user, for now we don't do anything here.

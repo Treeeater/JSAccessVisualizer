@@ -20,15 +20,16 @@
 	<body>
 		<h2 align="center">Visualizer v0.9</h2>
 		<hr/>
-		<div style="text-align:center; margin-top:20px;">
+		<div class="item">
 			<button onclick='pickFile();'>Choose File</button>
 			<button onclick='outputToFile();'>visualizerOutputToFile</button>
 		</div>
-		<div style="text-align:center; margin-top:20px;">
+		<div class="item">
 			<button onclick='obtainNow();'>Obtain Now!</button>
-			<button onclick='generalizeModel();'>Generalize</button>
+			<button onclick='generalizeModelClicked();'>Generalize</button>
 		</div>
-		<div style="text-align:center; margin-top:20px;">
+		<div class="item">Total iterations ran: <span id="iterations">0</span></div>
+		<div class="item">
 			<input type="checkbox" id="outputFileCB" name="vehicle" value="Bike">Record accesses to file when page leaves.</input>
 		</div>
 		<hr/>

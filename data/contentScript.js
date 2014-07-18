@@ -136,3 +136,30 @@ window.addEventListener('beforeunload',function(){
 });
 
 self.port.emit("requestOutputToFile","");			//request update outputToFile variable.
+
+self.port.on("getIDXpathMapping", function(){
+	//send xpath - id map to sidebar
+	var cacheID = [];
+	var cacheXPath = [];
+	var i = 0;
+	var recur = function(root, curXPath, index){
+		var id = root.id;
+		curXPath = curXPath + "/" + root.nodeName + "[" + index + "]";
+		if (id != "") {
+			cacheID[i] = id;
+			cacheXPath[i] = curXPath;
+			i++;
+		}
+		var next = root.firstElementChild;
+		var elements = {};
+		while (next != null){
+			var nextName = next.nodeName;
+			if (elements.hasOwnProperty(nextName)) elements[nextName]++;
+			else elements[nextName] = 1;
+			recur(next, curXPath, elements[nextName]);
+			next = next.nextElementSibling;
+		}
+	};
+	recur(document.body, "", 1);
+	self.port.emit("xpathIDMapping", {cacheID:cacheID, cacheXPath:cacheXPath});
+});

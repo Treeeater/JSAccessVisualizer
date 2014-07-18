@@ -1,9 +1,20 @@
 var fileRawData = "";
 var dataURL = "";
+var cacheID;
+var cacheXPath;
+var globalIterRan = 0;
+
+function resetContent(){
+	globalIterRan = 0;
+	cacheID = undefined;
+	cacheXPath = undefined;
+	$("#iterations").text("0");
+	$("#mainList").html("");
+}
 
 function pickFile(){
 	addon.port.emit("pickFile");
-	$("#mainList").html("");
+	resetContent();
 }
 
 function outputToFile(){
@@ -15,12 +26,12 @@ function outputToFile(){
 
 function obtainNow(){
 	addon.port.emit("obtainNow");
-	$("#mainList").html("");
+	resetContent();
 }
 
-function generalizeModel(){
+function generalize(){
 	generalized = processed.generalizeModel("content");
-	generalized = processed.generalizeModel("setter");
+	generalized = generalized.generalizeModel("setter");
 	addon.port.emit('removeAll', "");
 	$("#mainList").html("");
 	for (var domain in generalized.recordsPerDomain){
@@ -31,6 +42,32 @@ function generalizeModel(){
 		$("#mainList").append("<li status='collapsed' class='domain'>&#9658; " + domain + "</li><hr/>");		//9660 is down pointing
 	}
 	$("li").click(toggleGeneric);
+	$("#iterations").text((globalIterRan/2).toString());
+}
+
+addon.port.on("xpathIDMapping", function(msg){
+	cacheID = msg.cacheID;
+	cacheXPath = msg.cacheXPath;
+	generalize();
+	$("#loading").remove();
+});
+
+function generalizeModelClicked(){
+	if (typeof cacheID == "undefined"){
+		var e = document.createElement('div');
+		e.innerHTML = "<p style='font-size: 30px; text-align: center; margin-left:auto; margin-top:50%'>Loading...</p>";
+		e.id = "loading"
+		e.style.position = "absolute";
+		e.style.left = "0px";
+		e.style.top = "0px";
+		e.style.backgroundColor = "hsla(202, 85%, 45%, 0.5)";
+		e.style.height = "100%";
+		e.style.width = "100%";
+		e.style.zIndex = "100";
+		document.body.appendChild(e);
+		window.setTimeout('addon.port.emit("getIDXpathMapping","");',1000);
+	}
+	else generalize();
 }
 
 function RecordsPerSite(url){
@@ -185,10 +222,6 @@ function RecordsPerSite(url){
 		var a;
 		var b;
 		var temp;
-		if (typeof processed == 'undefined') {
-			alert("select an input file first!");
-			return that;
-		}
 		if (mode == "content") {
 			originalRecords = that.getContentRecords;
 			targetRecords = that.getContentRecordsG;
@@ -243,7 +276,22 @@ function RecordsPerSite(url){
 					targetRecords[domain].push(new Record("1", commonParents[i], "", ""));
 				}
 			}
+			//now that we have generalized, we try to obtain IDs from the current page.  This is an async process.
+			for (var i = 0; i < targetRecords[domain].length; i++){
+				var splited;
+				var rest = "";
+				for (splited = targetRecords[domain][i].resource.split("/"); splited.length > 0; rest="/"+splited.splice(-1)[0] + rest){
+					var index = cacheXPath.indexOf(splited.join("/"));
+					if (index != -1) {
+						var curNodeName = splited[splited.length-1];
+						curNodeName = curNodeName.substr(0,curNodeName.indexOf('['));
+						targetRecords[domain][i].resourceWID = "//" + curNodeName + "[@id='"+ cacheID[index] + "']" + rest;
+						break;
+					}
+				}
+			}
 		}
+		globalIterRan += iterations;
 		return that;
 	}
 }
@@ -290,7 +338,7 @@ function preprocess(data){
 				resourceWID = sp[1];
 			}
 			var additional = recordRaw.substr(resource.length + resourceWID.length + (resourceWID.length == 0 ? 0 : 1) + 5).chomp();
-			var record = new Record(times, resource, additional, resourceWID);
+			var record = new Record(times, resource, additional, "");			//note: resourceWID not used here.
 			r.recordsPerDomain[domain].push(record);
 		}
 	}
