@@ -101,7 +101,7 @@ self.port.on("setClearContent", function(msg){
 });
 
 self.port.on("renderAll", function(records){
-	records = records.split("_");
+	records = records.split("__|__");
 	somethingToDisplay = false;
 	for (var i = 0; i < records.length; i++){
 		display(records[i], "hsla(191, 85%, 65%, 0.5)");

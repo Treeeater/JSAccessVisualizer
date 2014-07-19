@@ -133,7 +133,7 @@ function toggleGeneric(event){
 			var records = processed[c][domain];
 			var xpaths = [];
 			selectedElement = event.target;
-			addon.port.emit('renderAll', records.map(function(rec){return rec.resource;}).join("_"));
+			addon.port.emit('renderAll', records.map(function(rec){return rec.resource;}).join("__|__"));
 		}
 		else {
 			displayAllPressed = false;
@@ -192,7 +192,7 @@ function hoverOut(event){
 	sendToCS(event.target, "stop");
 }
 
-addon.port.on("fileRawData", function(msg){
+addon.port.on("recordFileRawData", function(msg){
 	resetContent();
 	fileRawData = msg.data;
 	preprocessed = preprocess(fileRawData);

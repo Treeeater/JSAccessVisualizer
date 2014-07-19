@@ -28,6 +28,10 @@
 			<button onclick='obtainNow();'>Obtain Now!</button>
 			<button onclick='generalizeModelClicked();'>Generalize</button>
 		</div>
+		<div class="item">
+			<button onclick='loadModel();'>Load Model</button>
+			<button onclick='outputModel();'>Output Model</button>
+		</div>
 		<div class="item">Total iterations ran: <span id="iterations">0</span></div>
 		<div class="item">
 			<input type="checkbox" id="outputFileCB" name="vehicle" value="Bike">Record accesses to file when page leaves.</input>
@@ -36,6 +40,7 @@
 		<ul id="mainList" class="no_bullet">
 		</ul>
 		<script type="text/javascript" src="dataProcessing.js"></script>
+		<script type="text/javascript" src="model.js"></script>
 		<script type="text/javascript" src="sidebar.js"></script>
 	</body>
 </html>

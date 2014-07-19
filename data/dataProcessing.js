@@ -1,8 +1,10 @@
 var fileRawData = "";
-var dataURL = "";
 var cacheID;
 var cacheXPath;
 var globalIterRan = 0;
+var generalized;
+var processed;
+var preprocessed;
 
 function resetContent(){
 	globalIterRan = 0;
@@ -13,7 +15,7 @@ function resetContent(){
 }
 
 function pickFile(){
-	addon.port.emit("pickFile");
+	addon.port.emit("pickFile","recordFileRawData");
 	resetContent();
 }
 
@@ -216,7 +218,7 @@ function RecordsPerSite(url){
 	}
 
 	this.generalizeModel = function(mode){
-		var iterations = 3;
+		var iterations = 1;
 		var commonParents = [];
 		var commonParent;
 		var a;
@@ -293,7 +295,32 @@ function RecordsPerSite(url){
 		}
 		globalIterRan += iterations;
 		return that;
-	}
+	};
+	
+	this.outputModel = function(){
+		var retVal = "URL: " + that.URL + "---\n";
+		for (var domain in that.recordsPerDomain){
+			retVal += "tpd: " + domain + ":\n";
+			if (that.getContentRecords[domain].length > 0) retVal += "getContentRecords: \n";
+			for (var i = 0; i < that.getContentRecords[domain].length; i++){
+				if (that.getContentRecords[domain][i].resourceWID != "") retVal += that.getContentRecords[domain][i].resourceWID;
+				else retVal += that.getContentRecords[domain][i].resource;
+				retVal += "\n";
+			}
+			if (that.setterRecords[domain].length > 0) retVal += "---\nsetterRecords: \n";
+			for (var i = 0; i < that.setterRecords[domain].length; i++){
+				if (that.setterRecords[domain][i].resourceWID != "") retVal += that.setterRecords[domain][i].resourceWID;
+				else retVal += that.setterRecords[domain][i].resource;
+				retVal += "\n";
+			}
+			if (that.specialRecords[domain].length > 0) retVal += "---\nspecialRecords: \n";
+			for (var i = 0; i < that.specialRecords[domain].length; i++){
+				retVal += that.specialRecords[domain][i].resource + "\n";
+			}
+			retVal += "---\n"
+		}
+		return retVal;
+	};
 }
 
 function Record(t, r, a, rw){
