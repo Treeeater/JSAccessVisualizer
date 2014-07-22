@@ -48,6 +48,12 @@ function display(xpath, color){
 		//if its parent only has this textnode as child, highlight its parent.
 		xpath = truncatedXPath;
 	}
+	if (xpath.indexOf(':')!=-1){
+		//this could be a FB customized node like FB:like
+		//just ignore it.
+		self.port.emit("elementNotVisible",xpath);
+		return;
+	}
 	var element = getElementByXpath(xpath);
 	if (element == null){
 		self.port.emit("elementNotFound",xpath);
@@ -89,6 +95,11 @@ self.port.on("stop", function(msg){
 
 self.port.on("getContent", function(msg){
 	var xpath = "/html[1]"+msg.xpath;
+	if (xpath.indexOf(':')!=-1) {
+		//FB:like node or similar
+		alert("customized node by FB?");
+		return;
+	}
 	var element = getElementByXpath(xpath);
 	if (element != null){
 		self.port.emit("contentAvailable", element.outerHTML.substr(0,400));

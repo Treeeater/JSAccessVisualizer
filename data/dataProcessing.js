@@ -1,16 +1,13 @@
 var fileRawData = "";
 var cacheID;
 var cacheXPath;
-var globalIterRan = 0;
 var generalized;
 var processed;
 var preprocessed;
 
 function resetContent(){
-	globalIterRan = 0;
 	cacheID = undefined;
 	cacheXPath = undefined;
-	$("#iterations").text("0");
 	$("#mainList").html("");
 }
 
@@ -44,7 +41,6 @@ function generalize(){
 		$("#mainList").append("<li status='collapsed' class='domain'>&#9658; " + domain + "</li><hr/>");		//9660 is down pointing
 	}
 	$("li").click(toggleGeneric);
-	$("#iterations").text((globalIterRan/2).toString());
 }
 
 addon.port.on("xpathIDMapping", function(msg){
@@ -218,7 +214,6 @@ function RecordsPerSite(url){
 	}
 
 	this.generalizeModel = function(mode){
-		var iterations = 1;
 		var commonParents = [];
 		var commonParent;
 		var a;
@@ -234,7 +229,7 @@ function RecordsPerSite(url){
 		}
 		for (var domain in that.recordsPerDomain){
 			targetRecords[domain] = originalRecords[domain].slice(0);
-			for (var iter = 0; iter < iterations; iter++){
+			for (var iter = 0; true; iter++){
 				commonParents = [];
 				for (var i = 0; i < targetRecords[domain].length; i++){
 					for (var j = 0; j < targetRecords[domain].length; j++){
@@ -261,6 +256,7 @@ function RecordsPerSite(url){
 						commonParents.push(commonParent);
 					}
 				}
+				if (commonParents.length == 0) break;
 				//get the deepest common parents
 				var deep = -1;
 				for (var i = 0; i < commonParents.length; i++){
@@ -299,7 +295,6 @@ function RecordsPerSite(url){
 				}
 			}
 		}
-		globalIterRan += iterations;
 		return that;
 	};
 	
