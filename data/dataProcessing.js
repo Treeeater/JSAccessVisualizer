@@ -252,6 +252,12 @@ function RecordsPerSite(url){
 						}
 						if (commonParent == "/BODY[1]") continue;					//common parents are root, useless.
 						if (commonParents.indexOf(commonParent)!=-1) continue;		//no duplicate
+						//if the common parent differs too much than the two nodes in depth, do not even consider this common parent.
+						var depthI = a.split('/').length - 1;
+						var depthJ = b.split('/').length - 1;
+						var depthC = commonParent.split('/').length - 1;
+						if (Math.abs(depthI - depthC)/depthI >= 0.3) continue;
+						if (Math.abs(depthJ - depthC)/depthJ >= 0.3) continue;
 						commonParents.push(commonParent);
 					}
 				}
