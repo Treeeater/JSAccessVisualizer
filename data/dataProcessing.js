@@ -98,8 +98,10 @@ function RecordsPerSite(url){
 		//given the additional string, return if this is a get access
 		var ret = (s.indexOf('Set') == 0);
 		ret = ret || (s.indexOf('Remove') == 0);
-		ret = ret || (s.indexOf('InsertBefore') == 0);
-		ret = ret || (s.indexOf('AppendChild') == 0);
+		//InsertBefore, AppendChild and ReplaceChild are related to inserted node's parent node, we do not care.
+		ret = ret || (s.indexOf('insertedBefore') == 0);
+		ret = ret || (s.indexOf('appendedChild') == 0);
+		ret = ret || (s.indexOf('replacedChild') == 0);
 		return ret;
 	};
 	
