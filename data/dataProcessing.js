@@ -82,34 +82,37 @@ function RecordsPerSite(url){
 	this.setterRecordsG = {};
 	
 	var filterGetRecords = function(s){
+		s = s.toLowerCase();
 		//given the additional string, return if this is a get access
-		var ret = (s.indexOf('Get') == 0);
-		ret = ret && (s.indexOf('GetParent')!=0);
-		ret = ret && (s.indexOf('GetFirstChild')!=0);
-		ret = ret && (s.indexOf('GetNextSibling')!=0);
-		ret = ret && (s.indexOf('GetPreviousSibling')!=0);
-		ret = ret || (s.indexOf('Scroll') == 0);
-		ret = ret || (s.indexOf('Client') == 0);
-		ret = ret || (s.indexOf('Attributes') == 0);
+		var ret = (s.indexOf('get') == 0 || s.indexOf('has') == 0);
+		ret = ret && (s.indexOf('getparent')!=0);
+		ret = ret && (s.indexOf('getfirstchild')!=0);
+		ret = ret && (s.indexOf('getnextsibling')!=0);
+		ret = ret && (s.indexOf('getprevioussibling')!=0);
+		ret = ret || (s.indexOf('scroll') == 0);
+		ret = ret || (s.indexOf('client') == 0);
+		ret = ret || (s.indexOf('attributes') == 0);
 		return ret;
 	};
 	
 	var filterSetRecords = function(s){
 		//given the additional string, return if this is a get access
-		var ret = (s.indexOf('Set') == 0);
-		ret = ret || (s.indexOf('Remove') == 0);
+		s = s.toLowerCase();
+		var ret = (s.indexOf('set') == 0);
+		ret = ret || (s.indexOf('remove') == 0);
 		//InsertBefore, AppendChild and ReplaceChild are related to inserted node's parent node, we do not care.
-		ret = ret || (s.indexOf('insertedBefore') == 0);
-		ret = ret || (s.indexOf('appendedChild') == 0);
-		ret = ret || (s.indexOf('replacedChild') == 0);
+		ret = ret || (s.indexOf('insertedbefore') == 0);
+		ret = ret || (s.indexOf('appendedchild') == 0);
+		ret = ret || (s.indexOf('replacedchild') == 0);
 		return ret;
 	};
 	
-	var filterGetgetContentRecords = function(r, a){
+	var filterGetContentRecords = function(r, a){
 		a = a.toLowerCase();
 		if (a.indexOf('get')==-1) return false;
 		//given the additional string, return if this is a get access
 		var ret = (a.indexOf('innerhtml') != -1) || (a.indexOf('outerhtml') != -1) || (a.indexOf('text') != -1);
+		ret = ret || (a.indexOf('getattribute__src') != -1 ||  a.indexOf('getattribute__href') != -1 || a.indexOf('getsrc') != -1 || a.indexOf('gethref') != -1);
 		return ret;
 	};
 	
@@ -180,7 +183,7 @@ function RecordsPerSite(url){
 							record.resource = record.resource.join("/");
 						}
 					}
-					if (filterGetgetContentRecords(record.resource, record.additional)){
+					if (filterGetContentRecords(record.resource, record.additional)){
 						//this is a content getter entry.
 						//if this node is already contained in another node, don't push this.
 						if (wasCoveredBefore("getContent",record.resource, domain)) continue;
@@ -304,19 +307,19 @@ function RecordsPerSite(url){
 		var retVal = "URL: " + that.URL + "---\n";
 		for (var domain in that.recordsPerDomain){
 			retVal += "tpd: " + domain + ":\n";
-			if (that.getContentRecords[domain].length > 0) retVal += "getContentRecords: \n";
+			retVal += "---\ngetContentRecords: \n";
 			for (var i = 0; i < that.getContentRecords[domain].length; i++){
 				if (that.getContentRecords[domain][i].resourceWID != "") retVal += that.getContentRecords[domain][i].resourceWID;
 				else retVal += that.getContentRecords[domain][i].resource;
 				retVal += "\n";
 			}
-			if (that.setterRecords[domain].length > 0) retVal += "---\nsetterRecords: \n";
+			retVal += "---\nsetterRecords: \n";
 			for (var i = 0; i < that.setterRecords[domain].length; i++){
 				if (that.setterRecords[domain][i].resourceWID != "") retVal += that.setterRecords[domain][i].resourceWID;
 				else retVal += that.setterRecords[domain][i].resource;
 				retVal += "\n";
 			}
-			if (that.specialRecords[domain].length > 0) retVal += "---\nspecialRecords: \n";
+			retVal += "---\nspecialRecords: \n";
 			for (var i = 0; i < that.specialRecords[domain].length; i++){
 				retVal += that.specialRecords[domain][i].resource + "\n";
 			}
@@ -347,7 +350,7 @@ function preprocess(data){
 	data = data.replace(/URL:\s.*?\n/g,'');			//get rid of additional url declarations (sometimes page refreshes themselves)
 	var r = new RecordsPerSite(url);
 	domains = data.split("tpd: ");
-	for (i = 0; i < domains.length; i++){
+	for (var i = 0; i < domains.length; i++){
 		var curData = domains[i];
 		if (curData == "") continue;
 		var domain = curData.substr(0, curData.indexOf(":\n"));
@@ -355,7 +358,7 @@ function preprocess(data){
 		curData = curData.substr(0,curData.length - 5);
 		recordsRaw = curData.split("_t: ");
 		if (!r.recordsPerDomain.hasOwnProperty(domain)) r.recordsPerDomain[domain] = [];
-		for (j = 0; j < recordsRaw.length; j++){
+		for (var j = 0; j < recordsRaw.length; j++){
 			var recordRaw = recordsRaw[j];
 			if (recordRaw == "") continue;
 			var times = recordRaw.substr(0, recordRaw.indexOf("\n"));
