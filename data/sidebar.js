@@ -41,13 +41,13 @@ function expandCategoryList(ele){
 }
 
 function insertCategories(ele, domain){
-	if (processed["getContentRecords"][domain].length != 0)
+	if (processed["getContentRecords"] && processed["getContentRecords"][domain].length != 0)
 		$(ele).append("<br/><li status='collapsed' class='category' url="+domain+">&#9658; getContentRecords<span class='displayall' c='getContentRecords'>DisplayAll</span></li>");
-	if (processed["setterRecords"][domain].length != 0)
+	if (processed["setterRecords"] && processed["setterRecords"][domain].length != 0)
 		$(ele).append("<br/><li status='collapsed' class='category' url="+domain+">&#9658; setterRecords<span class='displayall' c='setterRecords'>DisplayAll</span></li>");
-	if (processed["getterRecords"][domain].length != 0)
+	if (processed["getterRecords"] && processed["getterRecords"][domain].length != 0)
 		$(ele).append("<br/><li status='collapsed' class='category' url="+domain+">&#9658; getterRecords<span class='displayall' c='getterRecords'>DisplayAll</span></li>");
-	if (processed["specialRecords"][domain].length != 0)
+	if (processed["specialRecords"] && processed["specialRecords"][domain].length != 0)
 		$(ele).append("<br/><li status='collapsed' class='category' url="+domain+">&#9658; specialRecords</li>");
 }
 

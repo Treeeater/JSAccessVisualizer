@@ -208,9 +208,9 @@ function RecordsPerSite(url){
 				else{
 					//special entry
 					//no need to detect duplicate or remove duplicate, this is not xpath related.
-					if (pushedSpecialEntry.indexOf(record.resource + record.additional) == -1){
+					if (pushedSpecialEntry.indexOf(record.resource) == -1){
 						that.specialRecords[domain].push(record);
-						pushedSpecialEntry.push(record.resource + record.additional);
+						pushedSpecialEntry.push(record.resource);
 					}
 				}
 			}
