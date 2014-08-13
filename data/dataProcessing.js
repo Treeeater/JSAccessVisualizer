@@ -31,11 +31,13 @@ function obtainNow(){
 function generalize(){
 	generalized = processed.generalizeModel("content");
 	generalized = generalized.generalizeModel("setter");
+	generalized = generalized.generalizeModel("getter");
 	addon.port.emit('removeAll', "");
 	$("#mainList").html("");
 	for (var domain in generalized.recordsPerDomain){
 		generalized.getContentRecords[domain] = generalized.getContentRecordsG[domain];
 		generalized.setterRecords[domain] = generalized.setterRecordsG[domain];
+		generalized.getterRecords[domain] = generalized.getterRecordsG[domain];
 	}
 	for (var domain in generalized.recordsPerDomain){
 		$("#mainList").append("<li status='collapsed' class='domain'>&#9658; " + domain + "</li><hr/>");		//9660 is down pointing
@@ -80,6 +82,7 @@ function RecordsPerSite(url){
 	
 	this.getContentRecordsG = {};		//generalized model
 	this.setterRecordsG = {};
+	this.getterRecordsG = {};
 	
 	var filterGetRecords = function(s){
 		s = s.toLowerCase();
@@ -89,6 +92,8 @@ function RecordsPerSite(url){
 		ret = ret && (s.indexOf('getfirstchild')!=0);
 		ret = ret && (s.indexOf('getnextsibling')!=0);
 		ret = ret && (s.indexOf('getprevioussibling')!=0);
+		ret = ret && (s.indexOf('getownerdocument')!=0);
+		ret = ret && (s.indexOf('getelement')!=0);
 		ret = ret || (s.indexOf('scroll') == 0);
 		ret = ret || (s.indexOf('client') == 0);
 		ret = ret || (s.indexOf('attributes') == 0);
@@ -170,6 +175,7 @@ function RecordsPerSite(url){
 			that.specialRecords[domain] = [];
 			var pushedSpecialEntry = [];
 			var pushedGetterEntry = [];
+			var pushedSetterEntry = [];
 			for (var i = 0; i < records.length; i++){
 				var record = records[i];
 				if (record.resource.indexOf('/') == 0){
@@ -192,9 +198,13 @@ function RecordsPerSite(url){
 					}
 					else if (filterSetRecords(record.additional)){
 						//this is a setter entry, which is *NOT* a content getter entry.
-						if (wasCoveredBefore("setter",record.resource, domain)) continue;
-						removeDuplicates("setter",record.resource, domain);
-						that.setterRecords[domain].push(record);
+						//if (wasCoveredBefore("setter",record.resource, domain)) continue;
+						//removeDuplicates("setter",record.resource, domain);
+						//that.setterRecords[domain].push(record);
+						if (pushedSetterEntry.indexOf(record.resource) == -1){
+							that.setterRecords[domain].push(record);
+							pushedSetterEntry.push(record.resource);
+						}
 					}
 					else if (filterGetRecords(record.additional)){
 						//this is a get entry that is *NOT* a content getter or setter.
@@ -228,9 +238,13 @@ function RecordsPerSite(url){
 			originalRecords = that.getContentRecords;
 			targetRecords = that.getContentRecordsG;
 		}
-		else {
+		else if (mode == "setter"){
 			originalRecords = that.setterRecords;
 			targetRecords = that.setterRecordsG;
+		}
+		else if (mode == "getter"){
+			originalRecords = that.getterRecords;
+			targetRecords = that.getterRecordsG;
 		}
 		for (var domain in that.recordsPerDomain){
 			targetRecords[domain] = originalRecords[domain].slice(0);
@@ -256,7 +270,7 @@ function RecordsPerSite(url){
 						var depthI = a.split('/').length - 1;
 						var depthJ = b.split('/').length - 1;
 						var depthC = commonParent.split('/').length - 1;
-						if (Math.abs(depthI - depthC)/depthI >= 0.3) continue;
+						if (Math.abs(depthI - depthC)/depthI >= 0.3) continue;		//other elements never get mingled with body, because body has a depth of 0. Infinity > 0.3
 						if (Math.abs(depthJ - depthC)/depthJ >= 0.3) continue;
 						commonParents.push(commonParent);
 					}
