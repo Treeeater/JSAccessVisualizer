@@ -100,20 +100,43 @@ function RecordsPerSite(url){
 		return ret;
 	};
 	
-	var filterSetRecords = function(s){
+	var filterSetRecords = function(record){
+		var a = record.additional.toLowerCase();
+		if (record.resource.indexOf('#text')!=-1){
+			//text node, just remove this #text if the access is setNodeValue, otherwise skip this.
+			if (record.additional.indexOf('setnodevalue')!=-1){
+				//get rid of the #text
+				record.resource = record.resource.split("/");
+				record.resource.splice(-1,1);
+				record.resource = record.resource.join("/");
+				return true;
+			}
+			return false;
+		}
 		//given the additional string, return if this is a get access
-		s = s.toLowerCase();
-		var ret = (s.indexOf('set') == 0);
-		ret = ret || (s.indexOf('remove') == 0);
+		var ret = (a.indexOf('set') == 0);
+		ret = ret || (a.indexOf('remove') == 0);
 		//InsertBefore, AppendChild and ReplaceChild are related to inserted node's parent node, we do not care.
-		ret = ret || (s.indexOf('insertedbefore') == 0);
-		ret = ret || (s.indexOf('appendedchild') == 0);
-		ret = ret || (s.indexOf('replacedchild') == 0);
+		ret = ret || (a.indexOf('insertedbefore') == 0);
+		ret = ret || (a.indexOf('appendedchild') == 0);
+		ret = ret || (a.indexOf('replacedchild') == 0);
 		return ret;
 	};
 	
-	var filterGetContentRecords = function(r, a){
-		a = a.toLowerCase();
+	var filterGetContentRecords = function(record){
+		var r = record.resource;
+		var a = record.additional.toLowerCase();
+		if (r.indexOf('#text')!=-1){
+			//text node, just remove this #text if the access is wholeText, getNodeValue, otherwise skip this.
+			if (a.indexOf('wholetext')!=-1 || a.indexOf('getnodevalue')!=-1){
+				//get rid of the #text
+				record.resource = record.resource.split("/");
+				record.resource.splice(-1,1);
+				record.resource = record.resource.join("/");
+				return true;
+			}
+			return false;
+		}
 		if (a.indexOf('get')==-1) return false;
 		//given the additional string, return if this is a get access
 		var ret = (a.indexOf('innerhtml') != -1) || (a.indexOf('outerhtml') != -1) || (a.indexOf('text') != -1);
@@ -180,23 +203,14 @@ function RecordsPerSite(url){
 				var record = records[i];
 				if (record.resource.indexOf('/') == 0){
 					//XPath entry
-					if (record.resource.indexOf('#text')!=-1){
-						//text node, just remove this #text if the access is g/setWholeText, g/setNodeValue, otherwise skip this.
-						if (record.additional.indexOf('WholeText')!=-1 || record.additional.indexOf('NodeValue')!=-1){
-							//get rid of the #text
-							record.resource = record.resource.split("/");
-							record.resource.splice(-1,1);
-							record.resource = record.resource.join("/");
-						}
-					}
-					if (filterGetContentRecords(record.resource, record.additional)){
+					if (filterGetContentRecords(record)){
 						//this is a content getter entry.
 						//if this node is already contained in another node, don't push this.
 						if (wasCoveredBefore("getContent",record.resource, domain)) continue;
 						removeDuplicates("getContent",record.resource, domain);
 						that.getContentRecords[domain].push(record);
 					}
-					else if (filterSetRecords(record.additional)){
+					else if (filterSetRecords(record)){
 						//this is a setter entry, which is *NOT* a content getter entry.
 						//if (wasCoveredBefore("setter",record.resource, domain)) continue;
 						//removeDuplicates("setter",record.resource, domain);
