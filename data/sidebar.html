@@ -22,18 +22,21 @@
 		<hr/>
 		<div class="item">
 			<button onclick='pickFile();'>Choose File</button>
-			<button onclick='outputToFile();'>visualizerOutputToFile</button>
+			<button onclick='outputToFile();'>outputToFile</button>
+			<button onclick='outputToFileAdd();'>withAdditionalInfo</button>
 		</div>
 		<div class="item">
 			<button onclick='obtainNow();'>Obtain Now!</button>
-			<button onclick='generalizeModelClicked();'>Generalize</button>
+			<!--<button onclick='generalizeModelClicked();'>Generalize</button>-->
+			<button onclick='checkPolicyAndDisplay();'>Display check</button>
+			<button onclick='checkPolicyAndOutputToFile();'>Output check</button>
 		</div>
 		<div class="item">
 			<button onclick='loadModel();'>Load Model</button>
 			<button onclick='outputModel();'>Output Model</button>
 		</div>
 		<div class="item">
-			<input type="checkbox" id="outputFileCB" name="vehicle" value="Bike">Record accesses to file when page leaves.</input>
+			<input type="checkbox" id="outputFileCB">Record accesses to file when page leaves.</input>
 		</div>
 		<hr/>
 		<ul id="mainList" class="no_bullet">

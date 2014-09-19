@@ -16,6 +16,7 @@ function insertRecords(ele, domain, recordType){
 		var recordElement = document.createElement('li');
 		recordElement.setAttribute('status', 'unselected');
 		recordElement.setAttribute('class', 'recordEntry');
+		if (records[i].owned) recordElement.setAttribute('class', 'recordEntry owned');
 		var textToDisplay = records[i].resource;
 		if (records[i].resourceWID != "") textToDisplay = records[i].resourceWID;
 		if (textToDisplay.length > 30){

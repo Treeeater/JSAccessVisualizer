@@ -50,6 +50,10 @@ span.displayall.clicked.NOTVISIBLE{
     border-width: medium;
 }
 
+.owned{
+	background-color: hsla(94, 46%, 73%, 1);
+}
+
 .recordEntry.hovered{
 	background-color: hsla(290,60%,70%,0.3);
 	font-size: 14px;

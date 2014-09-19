@@ -23,6 +23,21 @@ function outputToFile(){
 	addon.port.emit("setOutputToFile", "false");
 }
 
+function outputToFileAdd(){
+	addon.port.emit("outputToFileAdd","");
+	//diable checkbox automatically
+	$("#outputFileCB").prop('checked', false);
+	addon.port.emit("setOutputToFile", "false");
+}
+
+function checkPolicyAndDisplay(){
+	addon.port.emit("checkPolicyAndDisplay","");
+}
+
+function checkPolicyAndOutputToFile(){
+	addon.port.emit("checkPolicyAndOutputToFile","");
+}
+
 function obtainNow(){
 	addon.port.emit("obtainNow");
 	resetContent();
@@ -362,6 +377,7 @@ function Record(t, r, a, rw){
 	this.resource = r;
 	this.additional = a;
 	this.resourceWID = rw;
+	this.owned = false;
 }
 
 String.prototype.chomp = function(){
@@ -399,7 +415,13 @@ function preprocess(data){
 				resourceWID = sp[1];
 			}
 			var additional = recordRaw.substr(resource.length + resourceWID.length + (resourceWID.length == 0 ? 0 : 1) + 5).chomp();
+			var owned = false;
+			if (resource.substr(0,3) == "[o]") {
+				resource = resource.substr(3);
+				owned = true;
+			}
 			var record = new Record(times, resource, additional, "");			//note: resourceWID not used here.
+			record.owned = owned;
 			r.recordsPerDomain[domain].push(record);
 		}
 	}

@@ -136,6 +136,19 @@ self.port.on("outputToFile", function(msg){
 	document.visualizerOutputToFile();
 });
 
+self.port.on("outputToFileAdd", function(msg){
+	document.visualizerOutputToFileAdd();
+});
+
+self.port.on("checkPolicyAndOutputToFile", function(msg){
+	document.checkPolicyToFile();
+});
+
+self.port.on("checkPolicyAndDisplay", function(msg){
+	alert("not implemented yet!");
+	//self.port.emit("obtained",document.checkPolicyToString());
+});
+
 window.addEventListener('beforeunload',function(){
 	if (outputToFile) {
 		document.visualizerOutputToFile();
