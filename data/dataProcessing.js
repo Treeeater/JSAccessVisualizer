@@ -132,9 +132,9 @@ function RecordsPerSite(url){
 		var ret = (a.indexOf('set') == 0);
 		ret = ret || (a.indexOf('remove') == 0);
 		//InsertBefore, AppendChild and ReplaceChild are related to inserted node's parent node, we do not care.
-		ret = ret || (a.indexOf('insertedbefore') == 0);
-		ret = ret || (a.indexOf('appendedchild') == 0);
-		ret = ret || (a.indexOf('replacedchild') == 0);
+		ret = ret || (a.indexOf('insertbefore') == 0);
+		ret = ret || (a.indexOf('appendchild') == 0);
+		ret = ret || (a.indexOf('replacechild') == 0);
 		return ret;
 	};
 	
@@ -155,7 +155,7 @@ function RecordsPerSite(url){
 		if (a.indexOf('get')==-1) return false;
 		//given the additional string, return if this is a get access
 		var ret = (a.indexOf('innerhtml') != -1) || (a.indexOf('outerhtml') != -1) || (a.indexOf('text') != -1);
-		ret = ret || (a.indexOf('getattribute__src') != -1 ||  a.indexOf('getattribute__href') != -1 || a.indexOf('getsrc') != -1 || a.indexOf('gethref') != -1);
+		ret = ret || a.indexOf('getsrc') != -1 || a.indexOf('gethref') != -1;
 		return ret;
 	};
 	
