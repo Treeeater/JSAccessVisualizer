@@ -13,8 +13,12 @@ self.port.on("obtainNow", function(){
 	self.port.emit("obtained",document.visualizerOutputToString());
 });
 
+self.port.on("inferModel", function(){
+	self.port.emit("returningRawViolatingRecords",document.checkPolicyToString());
+});
+
 self.port.on("scroll", function(msg){
-	var xpath = "/html[1]"+msg.xpath;
+	var xpath = msg.xpath;
 	var element = getElementByXpath(xpath);
 	if (element == null){
 		self.port.emit("elementNotFound",xpath);
@@ -25,7 +29,7 @@ self.port.on("scroll", function(msg){
 });
 
 function display(xpath, color){
-	var xpath = "/html[1]"+xpath;
+	var xpath = xpath;
 	var xpathBeforeTruncation = xpath;
 	var ti = xpath.indexOf('#text');
 	if (ti != -1){
@@ -89,12 +93,12 @@ self.port.on("display", function(msg){
 });
 
 self.port.on("stop", function(msg){
-	var xpath = "/html[1]"+msg.xpath;
+	var xpath = msg.xpath;
 	$('div[visualizer_overlay="'+xpath+'"]').remove();
 });
 
 self.port.on("getContent", function(msg){
-	var xpath = "/html[1]"+msg.xpath;
+	var xpath = msg.xpath;
 	if (xpath.indexOf(':')!=-1) {
 		//FB:like node or similar
 		alert("customized node by FB?");

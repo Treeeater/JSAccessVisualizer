@@ -243,6 +243,8 @@ addon.port.emit("updateSBCBStatus","");
 
 addon.port.on("clearSBContent", resetContent);
 
+addon.port.on("returningRawViolatingRecords", returningRawViolatingRecords);
+
 addon.port.on("nothingToDisplayAll", function(){
 	//from the content scripts, we already alerted the user, for now we don't do anything here.
 	$(selectedElement).addClass("NOTVISIBLE");
