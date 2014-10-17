@@ -44,7 +44,8 @@ function obtainNow(){
 }
 
 function inferModelUI(){
-	addon.port.emit("inferModel");
+	var targetDomain = "";			//TODO: add this feature.
+	addon.port.emit("inferModel", targetDomain);
 }
 
 function generalize(){
@@ -378,17 +379,8 @@ function RecordsPerSite(url){
 	};
 }
 	
-var returningRawViolatingRecords = function(data){
-	//data is the raw data obtained from document.checkPolicyToString
-	//Ignore base access (/html, document.cookie, etc.)
-	//Classify accesses by tagnames
-	//start with deepmost access, get an array of deepmost nodes (if one node xpath is another one's prefix, ignore this for now)
-	//for these deepmost nodes, discover their pattern --- e.g. //DIV[@id="ad-.*"].  If impossible, list themselves
-	//confirm the pattern doesn't over-include other unrelated nodes
-	//check root policy entry type possibility
-	//for the rest accesses, see if any of them are likely //A>gethref category (check if 33% or more of those same tag names were accessed)
-	//For all of the above, categorize them as Ads/Widgets, or getting contents by looking at whether they have appendChild-like APIs called
-	//For the rest unclassified, prompt suspicious tag and ask the developer (user).
+function showPolicyToUser(msg){
+	console.log(msg);
 }
 
 function Record(t, r, a, rw){
@@ -406,11 +398,9 @@ String.prototype.chomp = function(){
 }
 
 function preprocess(data){
-	fileRawData = data;
 	data = data.replace(/\r/g,'');					//get rid of file specific \r
 	var url = data.substr(5, data.indexOf('\n---')-4);
 	data = data.substr(data.indexOf('---')+4);		//get rid of the first url declaration.
-	data = data.replace(/URL:\s.*?\n/g,'');			//get rid of additional url declarations (sometimes page refreshes themselves)
 	var r = new RecordsPerSite(url);
 	domains = data.split("tpd: ");
 	for (var i = 0; i < domains.length; i++){
