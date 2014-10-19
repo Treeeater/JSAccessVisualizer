@@ -44,8 +44,8 @@ function obtainNow(){
 }
 
 function inferModelUI(){
-	var targetDomain = "";			//TODO: add this feature.
-	addon.port.emit("inferModel", targetDomain);
+	//infer for all domains.
+	addon.port.emit("inferModel", "");
 }
 
 function generalize(){

@@ -1,5 +1,6 @@
 var selectedElement = null;
 var displayAllPressed = false;
+var calculatorImageSrc = "<img height='20' onclick='calculatorUIClicked(event)' style='float:right;' src='./icon/calculator.png'/>";
 
 function htmlDecode(value) {
     if (value) {
@@ -53,8 +54,9 @@ function insertCategories(ele, domain){
 }
 
 function expandDomainList(ele){
-	var domain = ele.innerHTML.substr(2);
-	$(ele).html("&#9660; "+domain);
+	var eleInnerHTML = ele.innerHTML;
+	var domain = ele.innerHTML.substr(2, ele.innerHTML.length - calculatorImageSrc.length - 1);
+	$(ele).html("&#9660; " + domain + calculatorImageSrc);
 	insertCategories(ele, domain);
 }
 
@@ -80,7 +82,7 @@ function collapseGeneric(event){
 		}
 	}
 	if ($(event.target).is("[class='domain']")){
-		$(event.target).children().remove();
+		$(event.target).children().not("img").remove();
 	}
 	else if ($(event.target).is("[class='category']")){
 		$(event.target).children("li.recordEntry").remove();
@@ -193,6 +195,13 @@ function hoverOut(event){
 	sendToCS(event.target, "stop");
 }
 
+function calculatorUIClicked(event){
+	var temp = event.target.parentNode.innerHTML;
+	var domain = temp.substr(2, temp.length - calculatorImageSrc.length - 1);
+	console.log(domain);
+	addon.port.emit("inferModel", domain);
+}
+
 addon.port.on("recordFileRawData", function(msg){
 	resetContent();
 	fileRawData = msg.data;
@@ -204,7 +213,7 @@ addon.port.on("recordFileRawData", function(msg){
 	}
 	processed = preprocessed.compressXPATH();
 	for (var domain in preprocessed.recordsPerDomain){
-		$("#mainList").append("<li status='collapsed' class='domain'>&#9658; " + domain + "</li><hr/>");		//9660 is down pointing
+		$("#mainList").append("<li status='collapsed' class='domain'>" + "&#9658; " + domain + calculatorImageSrc + "</li><hr/>");		//9660 is down pointing
 	}
 	$("li").click(toggleGeneric);
 });
