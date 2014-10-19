@@ -5,6 +5,24 @@ var getElementByXpath = function (path) {
     return document.evaluate(path, document, null, 9, null).singleNodeValue;
 };
 
+var getElementsByXpath = function (path) {
+    return document.evaluate(path, document, null, 4, null);
+};
+
+var getElementsByCSS = function (selector) {
+    return document.querySelectorAll(selector);
+};
+
+var consoleLog = function(msg){
+	console.log("\n");
+	console.log(msg);
+}
+
+var debug = function(msg){
+	console.log("D->");
+	console.log(msg);
+}
+
 self.port.on("nav", function(msg){
 	document.location = msg;
 });
@@ -18,11 +36,215 @@ self.port.on("inferModel", function(targetDomain){
 	self.port.emit("returningPolicy", string);
 });
 
+var getPatterns = function(abs, agg){
+	var i;
+	var returnValue = [];
+	while (abs.length > 0){
+		var patterns = [];
+		for (i = 0; i < agg.length; i++){
+			//agg's max length is 3.
+			//special case for class:
+			var matchNumber = 0;
+			if (agg[i].n.indexOf("class__")!=-1) {
+				var tagName = agg[i].n.substr(0, agg[i].n.indexOf(">"));
+				var attrName = agg[i].n.substr(tagName.length + 8);		//8: >class__
+				var p = tagName + "[class='" + attrName + "']";
+				matchNumber = getElementsByCSS(p).length;
+				if (matchNumber > agg[i].f || matchNumber <= 1) continue;		//this accidentally matches other nodes.
+				else {
+					patterns.push({p:p, n:matchNumber});
+					continue;
+				}
+			}
+			//for all other attr:
+			var headPattern="";
+			var prevMaxMatches = 0;
+			for (j = 0; j < abs.length; j++){
+				abs[j].excluded = false;
+			}
+			while (true){
+				var curC = {};
+				var maxC = "";
+				var maxMatches = -1;
+				for (j = 0; j < abs.length; j++){
+					if (!abs[j].a.hasOwnProperty(agg[i].n) || abs[j].excluded) continue;
+					var c = abs[j].a[agg[i].n].substr(headPattern.length,1);
+					if (curC.hasOwnProperty(c)) {
+						curC[c]++;
+						if (maxMatches < curC[c]) {
+							maxMatches = curC[c];
+							maxC = c;
+						}
+					}
+					else curC[c] = 1;
+				}
+				if (maxC == "" || maxMatches < prevMaxMatches) break;
+				else {
+					if (prevMaxMatches == 0) prevMaxMatches = maxMatches;
+					for (j = 0; j < abs.length; j++){
+						if (!abs[j].a.hasOwnProperty(agg[i].n)) abs[j].excluded = false;
+						else abs[j].excluded = (maxC != abs[j].a[agg[i].n].substr(headPattern.length,1));	//disqualify this entry in future comparisons.
+					}
+					headPattern = headPattern + maxC;
+				}
+			}
+			prevMaxMatches = 0;
+			for (j = 0; j < abs.length; j++){
+				abs[j].excluded = false;
+			}
+			var tailPattern="";
+			while (true){
+				var curC = {};
+				var maxC = "";
+				var maxMatches = -1;
+				for (j = 0; j < abs.length; j++){
+					if (!abs[j].a.hasOwnProperty(agg[i].n) || abs[j].excluded) continue;
+					var c = abs[j].a[agg[i].n].substr(abs[j].a[agg[i].n].length - tailPattern.length - 1,1);
+					if (curC.hasOwnProperty(c)) {
+						curC[c]++;
+						if (maxMatches < curC[c]) {
+							maxMatches = curC[c];
+							maxC = c;
+						}
+					}
+					else curC[c] = 1;
+				}
+				if (maxC == "" || maxMatches < prevMaxMatches) break;
+				else {
+					if (prevMaxMatches == 0) prevMaxMatches = maxMatches;
+					for (j = 0; j < abs.length; j++){
+						if (!abs[j].a.hasOwnProperty(agg[i].n)) abs[j].excluded = false;
+						else abs[j].excluded = (maxC != abs[j].a[agg[i].n].substr(abs[j].a[agg[i].n].length - tailPattern.length - 1,1));
+					}
+					tailPattern = tailPattern + maxC;
+				}
+			}
+			var headMatchNumber = 0;
+			var tailMatchNumber = 0;
+			//construct real head pattern and tail pattern
+			var tagName = agg[i].n.substr(0, agg[i].n.indexOf(">"));
+			var attrName = agg[i].n.substr(name.length + 2);
+			if (headPattern != "") {
+				headPattern = tagName + "[" + attrName + "^='" + headPattern + "']";
+				headMatchNumber = getElementsByCSS(headPattern).length;
+				if (headMatchNumber > agg[i].f || headMatchNumber <= 1) headMatchNumber = 0;
+			}
+			if (tailPattern != "") {
+				tailPattern = tagName + "[" + attrName + "$='" + tailPattern + "']";
+				tailMatchNumber = getElementsByCSS(tailPattern).length;
+				if (tailMatchNumber > agg[i].f || tailMatchNumber <= 1) tailMatchNumber = 0;
+			}
+			if (headMatchNumber == 0 && tailMatchNumber == 0) continue;
+			else if (headMatchNumber >= tailMatchNumber) patterns.push({p:headPattern, n:headMatchNumber});
+			else patterns.push({p:tailPattern, n:tailMatchNumber});
+		}
+		var maxMatchNumber = 0;
+		var maxPattern = "";
+		for (i = 0; i < patterns.length; i++){
+			if (maxMatchNumber < patterns[i].n){
+				maxMatchNumber = patterns[i].n;
+				maxPattern = patterns[i].p;
+			}
+		}
+		if (maxPattern != "") {
+			returnValue.push(maxPattern);
+			//remove all matched nodes and do it again.
+			var toEliminate = getElementsByCSS(maxPattern);
+			for (i = 0; i < toEliminate.length; i++){
+				for (j = 0; j < abs.length; j++){
+					if (toEliminate[i] == abs[j].n) {
+						abs.splice(j, 1);
+						break;
+					}
+				}
+			}
+		}
+		else {
+			//no more policies can be generated.
+			for (i = 0; i < abs.length; i++){
+				//unmatched accesses
+				returnValue.push(abs[i].r);
+			}
+			break;
+		}
+	}
+	return returnValue;
+}
+
+var learnPatterns = function(deepInsertionNodes){
+	//Obtain real node handles first.
+	var i,j;
+	var abstractedList = [];		//[{r:resource: a:[{n:v}, {n:v}, ..]}, ...]
+	var aggregatedAttrNames = [];			//[{id:4}, {class:5}];
+	var aggregatedAttrN = [];		//auxillary structures to generate aggregatedAttrNames.
+	var aggregatedAttrF = [];
+	for (i = 0; i < deepInsertionNodes.length; i++){
+		var node = getElementByXpath(deepInsertionNodes[i].xpath.split("|")[0]);
+		if (node != null) {
+			var a = node.attributes;
+			var attributeCandidates = {};
+			for (j = 0; j < a.length; j++){
+				var temp = a[j].name;
+				if (deepInsertionNodes[i].forbidden.indexOf(temp)==-1){
+					if (temp == "class") {
+					//special treatment for class
+						var values = a[j].value.split(" ");
+						for (var k = 0; k < values.length; k++){
+							if (values[k]=="") continue;
+							temp = node.tagName + ">class__" + values[k];
+							//hasClass A -> class__A=true
+							attributeCandidates[temp]="true";
+							if (aggregatedAttrN.indexOf(temp) == -1) {
+								aggregatedAttrN.push(temp);
+								aggregatedAttrF.push(1);
+							}
+							else aggregatedAttrF[aggregatedAttrN.indexOf(temp)] += 1;
+						}
+					}
+					else {
+						temp = node.tagName + ">" + temp;
+						attributeCandidates[temp] = a[j].value;
+						if (aggregatedAttrN.indexOf(temp) == -1) {
+							aggregatedAttrN.push(temp);
+							aggregatedAttrF.push(1);
+						}
+						else aggregatedAttrF[aggregatedAttrN.indexOf(temp)] += 1;
+					}
+				}
+			}
+			abstractedList.push({r: deepInsertionNodes[i].xpath, n: node, a:attributeCandidates});
+		}
+	}
+	//construct aggregatedAttrNames
+	for (i = 0; i < aggregatedAttrN.length; i++) {
+		//if the attribute is not present in more than one node, it is not a good selector
+		if (aggregatedAttrF[i] > 1) aggregatedAttrNames.push({n:aggregatedAttrN[i], f:aggregatedAttrF[i]});
+	}
+	//sort it
+	aggregatedAttrNames.sort(function (a,b){
+		//id and class are prioritized
+		if (b.f == a.f && (a.n.substr(a.n.indexOf('>')+1) == 'id')) return -1; 
+		if (b.f == a.f && (b.n.substr(b.n.indexOf('>')+1) == 'id')) return 1; 
+		if (b.f == a.f && (a.n.substr(a.n.indexOf('>')+1).indexOf('class__')==0)) return -1; 
+		if (b.f == a.f && (b.n.substr(b.n.indexOf('>')+1).indexOf('class__')==0)) return 1; 
+		return b.f - a.f;
+	});
+	aggregatedAttrNames.splice(3, aggregatedAttrNames.length);			//only use the top three candidates for performance reasons.
+	console.log(abstractedList);
+	var patterns = getPatterns(abstractedList, aggregatedAttrNames);
+	console.log(patterns);
+	//Guess ID, class, and then the rest of their most common attributes in order
+	//Guess their parent and grandparents.
+	//Match tail pattern://div[substring(@id, string-length(@id)-1, 2)='gh']
+	//Match head pattern://div[starts-with(@id, 'g')]
+	//Count: count(//div), retrieve by result.numberValue
+}
+
 var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 	retVal = "";
 	//2nd arg is optional, when specified, only infer the specified domain's policy.
 	//rawData is the raw data obtained from document.checkPolicyToString
-	console.log(rawData);
+	consoleLog(rawData);
 	//Parse data to records
 	rawData = rawData.replace(/\r/g,'');					//get rid of file specific \r
 	var url = rawData.substr(5, rawData.indexOf('\n---')-4);
@@ -89,13 +311,13 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				}
 			}
 		}
-		console.log(data);
+		consoleLog(data);
 		//Handle possible scenarios like //SCRIPT>GetSrc first.
 		var cache = {};
-		var remainingAccesses = [];
 		for (var k in tagPolicyValues) {
 			if (tagPolicyValues[k] > 1){
-				var tagName = k.substr(0, k.indexOf('>'));
+				var tagName = k.substr(2);
+				tagName = tagName.substr(0,tagName.indexOf('>'));
 				if (!cache[tagName]) {
 					cache[tagName] = document.getElementsByTagName(tagName).length;
 				}
@@ -105,17 +327,19 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 					//it's ok to write loop here as we do not expect this to happen many times
 					for (j = 0; j < dataDomain.violatingEntries.length; j++){
 						var e = dataDomain.violatingEntries[j];
-						if (k != "//" + e.t + ">" + e.a + ":" + e.n) {
-							remainingAccesses.push(e);
+						if (k == "//" + e.t + ">" + e.a + ":" + e.n) {
+							dataDomain.violatingEntries.splice(j, 1);
+							j--;
 						}
 					}
 				}
 			}
 		}
-		console.log(remainingAccesses);
+		var remainingAccesses = dataDomain.violatingEntries;
+		consoleLog(remainingAccesses);
 		//start with deepmost access, get an array of deepmost nodes (if one node xpath is another one's prefix, ignore this for now)
-		deepNodes = [];
-		shallowNodes = [];
+		var deepNodes = [];
+		var shallowNodes = [];
 		while (remainingAccesses.length > 0){
 			//get deepmost node
 			var maxDepth = -1;
@@ -137,16 +361,45 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 					shallowNodes.push(remainingAccesses.splice(j, 1)[0]);
 					j--;
 				}
+				else if (maxXPath == curXPath && j != maxIndex) {
+					//push other accesses of itself in deepNodes too.
+					deepNodes.push(remainingAccesses.splice(j, 1)[0]);
+					j--;
+				}
 			}
 		}
-		console.log(deepNodes);
-		console.log(shallowNodes);
+		consoleLog(deepNodes);
+		consoleLog(shallowNodes);
 		//remainingAccesses are divided into two types: shallowNodes and deepNodes.  Shallow nodes are parents of deep nodes.
-		//Now, for these deep nodes, discover their pattern --- e.g. //DIV[@id="ad-.*"].  If impossible, list themselves
+		var deepInsertionNodes = [];
+		j = 0;
+		while (j < deepNodes.length){
+			var curNode = deepNodes[j];
+			var insert = false;
+			var setAttributes = [];
+			var start = j;
+			//see how many after this is talking about the same node
+			while (true){
+				if (!insert) insert = (deepNodes[j].a == "InsertBefore" || deepNodes[j].a == "AppendChild" || deepNodes[j].a == "document.write" || deepNodes[j].a == "ReplaceChild");
+				if (deepNodes[j].a == "SetAttribute") setAttributes.push(deepNodes[j].n);
+				else if (deepNodes[j].a.indexOf("Set") == 0) setAttributes.push(deepNodes[j].a.substr(3).toLowerCase());
+				//(setattributes could have duplicate, but max of two dup)
+				j++;
+				if (j >= deepNodes.length || deepNodes[j-1].r != deepNodes[j].r) break;
+			}
+			if (insert) {
+				deepInsertionNodes.push({"xpath":deepNodes[j-1].r, "forbidden":setAttributes});
+				deepNodes.splice(start, j - start);
+				j = start;
+			}
+		}
+		consoleLog(deepInsertionNodes);
+		//deepInsertionNodes contains deep nodes that has accessed insertion APIs.
+		//Now, for these nodes, discover their pattern --- e.g. //DIV[@id="ad-.*"].  If impossible, list themselves
+		var patterns = learnPatterns(deepInsertionNodes);
 	}
 	//confirm the pattern doesn't over-include other unrelated nodes
 	//check root policy entry type possibility
-	//for the rest accesses, see if any of them are likely //A>gethref category (check if 33% or more of those same tag names were accessed)
 	//For all of the above, categorize them as Ads/Widgets, or getting contents by looking at whether they have appendChild-like APIs called
 	//For the rest unclassified, prompt suspicious tag and ask the developer (user).
 	return policies;
