@@ -14,12 +14,17 @@ var getElementsByCSS = function (selector) {
 };
 
 var consoleLog = function(msg){
-	console.log("\n");
+	console.log("L->");
 	console.log(msg);
 }
 
 var debug = function(msg){
 	console.log("D->");
+	console.log(msg);
+}
+
+var error = function(msg){
+	console.log("E->");
 	console.log(msg);
 }
 
@@ -39,8 +44,12 @@ self.port.on("inferModel", function(targetDomain){
 var getPatterns = function(abs, agg){
 	var i;
 	var returnValue = [];
-	while (abs.length > 0){
+	var iteration = 0;
+	var MAXITERATION = 5;
+	while (abs.length > 0 && iteration < MAXITERATION){
+		iteration++;
 		var patterns = [];
+		var classPatterns = [];
 		for (i = 0; i < agg.length; i++){
 			//agg's max length is 3.
 			//special case for class:
@@ -48,17 +57,20 @@ var getPatterns = function(abs, agg){
 			if (agg[i].n.indexOf("class__")!=-1) {
 				var tagName = agg[i].n.substr(0, agg[i].n.indexOf(">"));
 				var attrName = agg[i].n.substr(tagName.length + 8);		//8: >class__
-				var p = tagName + "[class='" + attrName + "']";
+				var p = tagName + "."+ attrName;
 				matchNumber = getElementsByCSS(p).length;
 				if (matchNumber > agg[i].f || matchNumber <= 1) continue;		//this accidentally matches other nodes.
 				else {
 					patterns.push({p:p, n:matchNumber});
+					classPatterns.push(p);
 					continue;
 				}
 			}
 			//for all other attr:
 			var headPattern="";
 			var prevMaxMatches = 0;
+			var maxHeadMatch = 0;
+			var maxTailMatch = 0;
 			for (j = 0; j < abs.length; j++){
 				abs[j].excluded = false;
 			}
@@ -78,7 +90,10 @@ var getPatterns = function(abs, agg){
 					}
 					else curC[c] = 1;
 				}
-				if (maxC == "" || maxMatches < prevMaxMatches) break;
+				if (maxC == "" || maxMatches < prevMaxMatches) {
+					maxHeadMatch = prevMaxMatches;
+					break;
+				}
 				else {
 					if (prevMaxMatches == 0) prevMaxMatches = maxMatches;
 					for (j = 0; j < abs.length; j++){
@@ -92,7 +107,7 @@ var getPatterns = function(abs, agg){
 			for (j = 0; j < abs.length; j++){
 				abs[j].excluded = false;
 			}
-			var tailPattern="";
+			var tailPattern = "";
 			while (true){
 				var curC = {};
 				var maxC = "";
@@ -109,14 +124,17 @@ var getPatterns = function(abs, agg){
 					}
 					else curC[c] = 1;
 				}
-				if (maxC == "" || maxMatches < prevMaxMatches) break;
+				if (maxC == "" || maxMatches < prevMaxMatches) {
+					maxTailMatch = prevMaxMatches;
+					break;
+				}
 				else {
 					if (prevMaxMatches == 0) prevMaxMatches = maxMatches;
 					for (j = 0; j < abs.length; j++){
 						if (!abs[j].a.hasOwnProperty(agg[i].n)) abs[j].excluded = false;
 						else abs[j].excluded = (maxC != abs[j].a[agg[i].n].substr(abs[j].a[agg[i].n].length - tailPattern.length - 1,1));
 					}
-					tailPattern = tailPattern + maxC;
+					tailPattern = maxC + tailPattern;
 				}
 			}
 			var headMatchNumber = 0;
@@ -127,12 +145,12 @@ var getPatterns = function(abs, agg){
 			if (headPattern != "") {
 				headPattern = tagName + "[" + attrName + "^='" + headPattern + "']";
 				headMatchNumber = getElementsByCSS(headPattern).length;
-				if (headMatchNumber > agg[i].f || headMatchNumber <= 1) headMatchNumber = 0;
+				if (headMatchNumber > maxHeadMatch || headMatchNumber <= 1) headMatchNumber = 0;
 			}
 			if (tailPattern != "") {
 				tailPattern = tagName + "[" + attrName + "$='" + tailPattern + "']";
 				tailMatchNumber = getElementsByCSS(tailPattern).length;
-				if (tailMatchNumber > agg[i].f || tailMatchNumber <= 1) tailMatchNumber = 0;
+				if (tailMatchNumber > maxTailMatch || tailMatchNumber <= 1) tailMatchNumber = 0;
 			}
 			if (headMatchNumber == 0 && tailMatchNumber == 0) continue;
 			else if (headMatchNumber >= tailMatchNumber) patterns.push({p:headPattern, n:headMatchNumber});
@@ -158,6 +176,18 @@ var getPatterns = function(abs, agg){
 					}
 				}
 			}
+			//if maxPattern is class type, we need to remove it from agg.  (this filter is already used, don't try to use again)
+			//other aggs might be used again, so we must not remove them.
+			if (classPatterns.indexOf(maxPattern) > -1){
+				var tagName = maxPattern.substr(0, maxPattern.indexOf("."));
+				var className = maxPattern.substr(maxPattern.indexOf(".")+1);
+				for (i = 0; i < agg.length; i++){
+					if (agg[i].n == tagName + ">class__"+className) {
+						agg.splice(i, 1);
+						break;
+					}
+				}
+			}
 		}
 		else {
 			//no more policies can be generated.
@@ -165,6 +195,15 @@ var getPatterns = function(abs, agg){
 				//unmatched accesses
 				returnValue.push(abs[i].r);
 			}
+			break;
+		}
+		if (iteration >= MAXITERATION){
+			//max iterations reached, just dump all the rest and output alarm
+			for (i = 0; i < abs.length; i++){
+				//unmatched accesses
+				returnValue.push(abs[i].r);
+			}
+			error("Too many iterations, dumping all other accesses in original form.");
 			break;
 		}
 	}
@@ -230,9 +269,10 @@ var learnPatterns = function(deepInsertionNodes){
 		return b.f - a.f;
 	});
 	aggregatedAttrNames.splice(3, aggregatedAttrNames.length);			//only use the top three candidates for performance reasons.
-	console.log(abstractedList);
+	consoleLog(abstractedList);
+	consoleLog(aggregatedAttrNames);
 	var patterns = getPatterns(abstractedList, aggregatedAttrNames);
-	console.log(patterns);
+	consoleLog(patterns);
 	//Guess ID, class, and then the rest of their most common attributes in order
 	//Guess their parent and grandparents.
 	//Match tail pattern://div[substring(@id, string-length(@id)-1, 2)='gh']
@@ -387,7 +427,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				j++;
 				if (j >= deepNodes.length || deepNodes[j-1].r != deepNodes[j].r) break;
 			}
-			if (insert) {
+			if (insert){
 				deepInsertionNodes.push({"xpath":deepNodes[j-1].r, "forbidden":setAttributes});
 				deepNodes.splice(start, j - start);
 				j = start;
