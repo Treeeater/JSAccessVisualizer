@@ -147,17 +147,20 @@ var getPatterns = function(abs, agg){
 			if (headPattern != "") {
 				headPattern = tagName + "[" + attrName + "^='" + headPattern + "']";
 				headMatchNumber = getElementsByCSS(headPattern).length;
+				//confirm the pattern doesn't over-include other unrelated nodes
 				if (headMatchNumber > maxHeadMatch) headMatchNumber = 0;
 			}
 			if (tailPattern != "") {
 				tailPattern = tagName + "[" + attrName + "$='" + tailPattern + "']";
 				tailMatchNumber = getElementsByCSS(tailPattern).length;
+				//confirm the pattern doesn't over-include other unrelated nodes
 				if (tailMatchNumber > maxTailMatch) tailMatchNumber = 0;
 			}
 			if (headPattern == "" && tailPattern == ""){
 				//test if simply having this attribute can be a unique identifier.
 				headPattern = tagName + "[" + attrName + "]";
 				headMatchNumber = getElementsByCSS(headPattern).length;
+				//confirm the pattern doesn't over-include other unrelated nodes
 				if (headMatchNumber > agg[i].f) headMatchNumber = 0;
 			}
 			if (headMatchNumber == 0 && tailMatchNumber == 0) continue;
@@ -176,8 +179,9 @@ var getPatterns = function(abs, agg){
 			var tagName = "";
 			var attrName = "";
 			var attrValue = "";
+			var selectorPattern = maxPattern;
 			//prepare to remove all matched nodes and do it again.
-			var toEliminate = getElementsByCSS(maxPattern);
+			var toEliminate = getElementsByCSS(selectorPattern);
 			
 			//convert maxPattern from CSS selector to our selector
 			if (classPatterns.indexOf(maxPattern) > -1){
@@ -206,8 +210,8 @@ var getPatterns = function(abs, agg){
 					attrValue = ".*";
 				}
 			}
-			maxPattern = "//" + tagName + "[@" + attrName + "='" + attrValue + "']";
-			returnValue.push({p:maxPattern, n:maxMatchNumber});
+			maxPattern = "//" + tagName + "[@" + attrName + "='" + attrValue + "']>!";		//TODO: >! could be too relaxed. This can be further tightened with analysis, but we leave this for future work.
+			returnValue.push({p:maxPattern, sp:selectorPattern, n:maxMatchNumber});
 			
 			//update agg and abs array to reflect this node has been matched:
 			for (i = 0; i < toEliminate.length; i++){
@@ -239,7 +243,7 @@ var getPatterns = function(abs, agg){
 				var policy = abs[i].r;
 				var temp = policy.indexOf("|");
 				if (temp > -1) policy = policy.substr(temp + 1);
-				returnValue.push({p:policy, n:1});
+				returnValue.push({p:policy, sp:"", n:1});
 			}
 			break;
 		}
@@ -250,7 +254,7 @@ var getPatterns = function(abs, agg){
 				var policy = abs[i].r;
 				var temp = policy.indexOf("|");
 				if (temp > -1) policy = policy.substr(temp + 1);
-				returnValue.push({p:policy, n:1});
+				returnValue.push({p:policy, sp:"", n:1});
 			}
 			error("Too many iterations, dumping all other accesses in original form.");
 			break;
@@ -318,12 +322,9 @@ var learnPatterns = function(deepInsertionNodes){
 		return b.f - a.f;
 	});
 	aggregatedAttrNames.splice(3, aggregatedAttrNames.length);			//only use the top three candidates for performance reasons.
-	consoleLog(abstractedList);
-	consoleLog(aggregatedAttrNames);
 	var patterns = getPatterns(abstractedList, aggregatedAttrNames);
-	consoleLog(patterns);
 	return patterns;
-	//Guess their parent and grandparents.
+	//TODO: Guess their parent and grandparents. This is not yet seen to be useful, but could benefit some sites in the future.
 	
 	//XPATH to match tail pattern://div[substring(@id, string-length(@id)-1, 2)='gh']
 	//To match head pattern://div[starts-with(@id, 'g')]
@@ -334,7 +335,6 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 	retVal = "";
 	//2nd arg is optional, when specified, only infer the specified domain's policy.
 	//rawData is the raw data obtained from document.checkPolicyToString
-	consoleLog(rawData);
 	//Parse data to records
 	rawData = rawData.replace(/\r/g,'');					//get rid of file specific \r
 	var url = rawData.substr(5, rawData.indexOf('\n---')-4);
@@ -384,7 +384,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				nodeInfo = thisData.substr(thisData.indexOf("\n_n: ") + 5);
 				nodeInfo = nodeInfo.substr(0, nodeInfo.length - 1);
 			}
-			else additional = thisData;
+			else additional = thisData.substr(0, thisData.length - 1);
 			//Ignore base access (/html, document.cookie, etc.)
 			if (resource[0] == "/"){
 				var temp = resource.split("|")[0];
@@ -401,7 +401,6 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				}
 			}
 		}
-		consoleLog(data);
 		//Handle possible scenarios like //SCRIPT>GetSrc first.
 		var cache = {};
 		for (var k in tagPolicyValues) {
@@ -426,7 +425,6 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 			}
 		}
 		var remainingAccesses = dataDomain.violatingEntries;
-		consoleLog(remainingAccesses);
 		//start with deepmost access, get an array of deepmost nodes (if one node xpath is another one's prefix, ignore this for now)
 		var deepNodes = [];
 		var shallowNodes = [];
@@ -458,8 +456,6 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				}
 			}
 		}
-		consoleLog(deepNodes);
-		consoleLog(shallowNodes);
 		//remainingAccesses are divided into two types: shallowNodes and deepNodes.  Shallow nodes are parents of deep nodes.
 		var deepInsertionNodes = [];
 		j = 0;
@@ -470,7 +466,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 			var start = j;
 			//see how many after this is talking about the same node
 			while (true){
-				if (!insert) insert = (deepNodes[j].a == "InsertBefore" || deepNodes[j].a == "AppendChild" || deepNodes[j].a == "document.write" || deepNodes[j].a == "ReplaceChild");
+				if (!insert) insert = (deepNodes[j].a == "InsertBefore" || deepNodes[j].a == "AppendChild" || deepNodes[j].a == "document.write" || deepNodes[j].a == "ReplaceChild" || deepNodes[j].a == "SetInnerHTML");
 				if (deepNodes[j].a == "SetAttribute") setAttributes.push(deepNodes[j].n);
 				else if (deepNodes[j].a.indexOf("Set") == 0) setAttributes.push(deepNodes[j].a.substr(3).toLowerCase());
 				//(setattributes could have duplicate, but max of two dup)
@@ -483,16 +479,45 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				j = start;
 			}
 		}
-		consoleLog(deepInsertionNodes);
-		//deepInsertionNodes contains deep nodes that has accessed insertion APIs.
+		//deepInsertionNodes contains deep nodes that have accessed insertion APIs.
 		//Now, for these nodes, discover their pattern --- e.g. //DIV[@id="ad-.*"].  If impossible, list themselves
-		var patterns = learnPatterns(deepInsertionNodes);
+		policies.exact = learnPatterns(deepInsertionNodes);
+		//check root policy entry type possibility.
+		//note: root policies are not meant to be exclusive.  Deriving one root policy will not lead to excluding its matching accesses.
+		//Therefore, root policies may overlap each other in terms of coverage.
+		for (k = 0; k < deepInsertionNodes.length; k++){
+			var nodeXPath = deepInsertionNodes[k].xpath.split("|")[0];
+			var l = nodeXPath.split('/').length - 1;
+			if (l <= 3) continue;
+			var node = getElementByXpath(nodeXPath);
+			for (j = 0; j < policies.exact.length; j++){
+				if (policies.exact[j].sp != "" && node.mozMatchesSelector(policies.exact[j].sp)) break;
+			}
+			var matchIndex = j;
+			if (matchIndex == policies.exact.length) continue;			//no match for this node (probably no policy generated to match this)
+			var roots = {};				//{'scrollLeft': 3}
+			for (j = 0; j < shallowNodes.length; j++){
+				var sx = shallowNodes[j].r.split('|')[0];
+				if (nodeXPath.indexOf(sx) != 0) continue;				
+				var key = ">" + shallowNodes[j].a + ((shallowNodes[j].n != "") ? (":" + shallowNodes[j].n) : "");
+				if (roots.hasOwnProperty(key)) {
+					roots[key] += (sx.split('/').length - 1);
+				}
+				else roots[key] = (sx.split('/').length - 1);
+			}
+			var shouldEqualTo = (l * (l - 1)) / 2 - 3;		//-3 is required because /html and /html/body or /html/head is ignored.
+			for (var key in roots){
+				if (roots[key] == shouldEqualTo){
+					var toPush = policies.exact[matchIndex].p.substr(0, policies.exact[matchIndex].p.length - 2) + key;
+					if (policies.root.indexOf(toPush) == -1) policies.root.push(toPush);
+				}
+			}
+		}
+		//For all of the above, categorize them as Ads/Widgets, or getting contents by looking at whether they have appendChild-like APIs called
+		//For the rest unclassified, prompt suspicious tag and ask the developer (user).
 	}
-	//confirm the pattern doesn't over-include other unrelated nodes
-	//check root policy entry type possibility
-	//For all of the above, categorize them as Ads/Widgets, or getting contents by looking at whether they have appendChild-like APIs called
-	//For the rest unclassified, prompt suspicious tag and ask the developer (user).
-	return policies;
+	console.log(policies);
+	//return policies;
 }
 
 self.port.on("scroll", function(msg){
