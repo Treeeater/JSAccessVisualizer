@@ -1,5 +1,6 @@
 var outputToFile = true;
 var clearContentUponNav = true;
+var logMsgCount = 0;
 
 var getElementByXpath = function (path) {
     return document.evaluate(path, document, null, 9, null).singleNodeValue;
@@ -14,8 +15,9 @@ var getElementsByCSS = function (selector) {
 };
 
 var consoleLog = function(msg){
-	console.log("L->");
-	console.log(msg);
+	logMsgCount++;
+	console.log("L"+logMsgCount.toString()+"->");
+	if (msg) console.log(msg);
 }
 
 var debug = function(msg){
@@ -141,16 +143,22 @@ var getPatterns = function(abs, agg){
 			var tailMatchNumber = 0;
 			//construct real head pattern and tail pattern
 			var tagName = agg[i].n.substr(0, agg[i].n.indexOf(">"));
-			var attrName = agg[i].n.substr(name.length + 2);
+			var attrName = agg[i].n.substr(tagName.length + 1);
 			if (headPattern != "") {
 				headPattern = tagName + "[" + attrName + "^='" + headPattern + "']";
 				headMatchNumber = getElementsByCSS(headPattern).length;
-				if (headMatchNumber > maxHeadMatch || headMatchNumber <= 1) headMatchNumber = 0;
+				if (headMatchNumber > maxHeadMatch) headMatchNumber = 0;
 			}
 			if (tailPattern != "") {
 				tailPattern = tagName + "[" + attrName + "$='" + tailPattern + "']";
 				tailMatchNumber = getElementsByCSS(tailPattern).length;
-				if (tailMatchNumber > maxTailMatch || tailMatchNumber <= 1) tailMatchNumber = 0;
+				if (tailMatchNumber > maxTailMatch) tailMatchNumber = 0;
+			}
+			if (headPattern == "" && tailPattern == ""){
+				//test if simply having this attribute can be a unique identifier.
+				headPattern = tagName + "[" + attrName + "]";
+				headMatchNumber = getElementsByCSS(headPattern).length;
+				if (headMatchNumber > agg[i].f) headMatchNumber = 0;
 			}
 			if (headMatchNumber == 0 && tailMatchNumber == 0) continue;
 			else if (headMatchNumber >= tailMatchNumber) patterns.push({p:headPattern, n:headMatchNumber});
@@ -165,25 +173,60 @@ var getPatterns = function(abs, agg){
 			}
 		}
 		if (maxPattern != "") {
-			returnValue.push(maxPattern);
-			//remove all matched nodes and do it again.
+			var tagName = "";
+			var attrName = "";
+			var attrValue = "";
+			//prepare to remove all matched nodes and do it again.
 			var toEliminate = getElementsByCSS(maxPattern);
+			
+			//convert maxPattern from CSS selector to our selector
+			if (classPatterns.indexOf(maxPattern) > -1){
+				tagName = maxPattern.substr(0, maxPattern.indexOf("."));
+				attrValue = maxPattern.substr(tagName.length+1);
+				attrName = "class";
+			}
+			else {
+				tagName = maxPattern.substr(0, maxPattern.indexOf("["));
+				maxPattern = maxPattern.substr(tagName.length + 1);
+				var headIndex = maxPattern.indexOf("^");
+				var tailIndex = maxPattern.indexOf("$");
+				if (headIndex != -1 && (tailIndex == -1 || (tailIndex != -1 && headIndex < tailIndex))) {
+					attrName = maxPattern.substr(0, headIndex);
+					maxPattern = maxPattern.substr(attrName.length + 3);
+					attrValue = maxPattern.substr(0, maxPattern.length - 2) + ".*";
+				}
+				else if (tailIndex != -1 && (headIndex == -1 || (headIndex != -1 && tailIndex < headIndex))) {
+					attrName = maxPattern.substr(0, tailIndex);
+					maxPattern = maxPattern.substr(attrName.length + 3);					//rid of $=
+					attrValue = ".*" + maxPattern.substr(0, maxPattern.length - 2);			//rid of ']
+				}
+				else {
+					//this is attr describer without a value scenario.
+					attrName = maxPattern.substr(0, maxPattern.length - 1);
+					attrValue = ".*";
+				}
+			}
+			maxPattern = "//" + tagName + "[@" + attrName + "='" + attrValue + "']";
+			returnValue.push({p:maxPattern, n:maxMatchNumber});
+			
+			//update agg and abs array to reflect this node has been matched:
 			for (i = 0; i < toEliminate.length; i++){
 				for (j = 0; j < abs.length; j++){
 					if (toEliminate[i] == abs[j].n) {
+						for (var name in abs[j].a){
+							for (var k = 0; k < agg.length; k++){
+								if (agg[k].n == name) {
+									agg[k].f--;
+									if (agg[k].f == 0) {
+										agg.splice(k, 1);
+										k--;
+									}
+									break;
+								}
+							}
+						}
+						//remove this entry in abs.
 						abs.splice(j, 1);
-						break;
-					}
-				}
-			}
-			//if maxPattern is class type, we need to remove it from agg.  (this filter is already used, don't try to use again)
-			//other aggs might be used again, so we must not remove them.
-			if (classPatterns.indexOf(maxPattern) > -1){
-				var tagName = maxPattern.substr(0, maxPattern.indexOf("."));
-				var className = maxPattern.substr(maxPattern.indexOf(".")+1);
-				for (i = 0; i < agg.length; i++){
-					if (agg[i].n == tagName + ">class__"+className) {
-						agg.splice(i, 1);
 						break;
 					}
 				}
@@ -193,7 +236,10 @@ var getPatterns = function(abs, agg){
 			//no more policies can be generated.
 			for (i = 0; i < abs.length; i++){
 				//unmatched accesses
-				returnValue.push(abs[i].r);
+				var policy = abs[i].r;
+				var temp = policy.indexOf("|");
+				if (temp > -1) policy = policy.substr(temp + 1);
+				returnValue.push({p:policy, n:1});
 			}
 			break;
 		}
@@ -201,7 +247,10 @@ var getPatterns = function(abs, agg){
 			//max iterations reached, just dump all the rest and output alarm
 			for (i = 0; i < abs.length; i++){
 				//unmatched accesses
-				returnValue.push(abs[i].r);
+				var policy = abs[i].r;
+				var temp = policy.indexOf("|");
+				if (temp > -1) policy = policy.substr(temp + 1);
+				returnValue.push({p:policy, n:1});
 			}
 			error("Too many iterations, dumping all other accesses in original form.");
 			break;
@@ -256,8 +305,8 @@ var learnPatterns = function(deepInsertionNodes){
 	}
 	//construct aggregatedAttrNames
 	for (i = 0; i < aggregatedAttrN.length; i++) {
-		//if the attribute is not present in more than one node, it is not a good selector
-		if (aggregatedAttrF[i] > 1) aggregatedAttrNames.push({n:aggregatedAttrN[i], f:aggregatedAttrF[i]});
+		//if the attribute is not present in more than one node, it is not a good selector: if (aggregatedAttrF[i] > 1) 
+		aggregatedAttrNames.push({n:aggregatedAttrN[i], f:aggregatedAttrF[i]});
 	}
 	//sort it
 	aggregatedAttrNames.sort(function (a,b){
@@ -273,11 +322,12 @@ var learnPatterns = function(deepInsertionNodes){
 	consoleLog(aggregatedAttrNames);
 	var patterns = getPatterns(abstractedList, aggregatedAttrNames);
 	consoleLog(patterns);
-	//Guess ID, class, and then the rest of their most common attributes in order
+	return patterns;
 	//Guess their parent and grandparents.
-	//Match tail pattern://div[substring(@id, string-length(@id)-1, 2)='gh']
-	//Match head pattern://div[starts-with(@id, 'g')]
-	//Count: count(//div), retrieve by result.numberValue
+	
+	//XPATH to match tail pattern://div[substring(@id, string-length(@id)-1, 2)='gh']
+	//To match head pattern://div[starts-with(@id, 'g')]
+	//To count: count(//div), retrieve by result.numberValue
 }
 
 var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
@@ -428,7 +478,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				if (j >= deepNodes.length || deepNodes[j-1].r != deepNodes[j].r) break;
 			}
 			if (insert){
-				deepInsertionNodes.push({"xpath":deepNodes[j-1].r, "forbidden":setAttributes});
+				deepInsertionNodes.push({"xpath":deepNodes[j-1].r, "forbidden":setAttributes, "a":deepNodes[j-1].a, "n":deepNodes[j-1].n});
 				deepNodes.splice(start, j - start);
 				j = start;
 			}
