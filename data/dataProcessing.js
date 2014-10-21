@@ -4,6 +4,7 @@ var cacheXPath;
 var generalized;
 var processed;
 var preprocessed;
+var policyWindowHandler;
 
 function resetContent(){
 	cacheID = undefined;
@@ -379,15 +380,39 @@ function RecordsPerSite(url){
 	};
 }
 	
-function postMsg(w, msg){
-	console.log("sent");
-	w.postMessage(msg, "*");
+function postMsg(msg){
+	policyWindowHandler.postMessage(msg, "*");
+}
+
+window.addEventListener("message", handleMessage, false);
+
+function handleMessage(event){
+	var d = event.data;
+	if (d.type == "output") {
+		if (d.hd == "" || d.tpd == "") {
+			alert("cannot retrieve host domain or third party domain, error!");
+			return;
+		}
+		var msg = {};
+		msg.fileName = "policies\\extra\\" + d.hd + "\\" + d.tpd + ".txt";
+		msg.content = d.policy;
+		if (msg.content.substr(-1, 1) == "\n") msg.content = msg.content.substr(0, msg.content.length - 1);
+		msg.content = "\n" + msg.content;
+		addon.port.emit("appendContentToFile", msg);
+	}
+	else if (d.type == "clicked") {
+		addon.port.emit("CSSDisplay", {XPath: d.XPath, CSSSelector: d.selector, color: "hsla(290,60%,70%,0.5)"});
+	}
+	else if (d.type == "remove") {
+		addon.port.emit("RemoveCSSDisplay", {XPath: d.XPath, CSSSelector: d.selector});
+	}
 }
 
 function showPolicyToUser(msg){
-	var w = window.open("showPolicy.html", "policywindow", "height=800, width=800");
+	if (policyWindowHandler != undefined) policyWindowHandler.close();
+	policyWindowHandler = window.open("showPolicy.html", "policywindow", "height=800, width=800");
 	var message = msg;
-	w.addEventListener('load', postMsg.bind(this, w, message), true);
+	policyWindowHandler.addEventListener('load', postMsg.bind(this, message), true);
 }
 
 function Record(t, r, a, rw){

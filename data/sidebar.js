@@ -196,8 +196,8 @@ function hoverOut(event){
 }
 
 function calculatorUIClicked(event){
-	var temp = event.target.parentNode.innerHTML;
-	var domain = temp.substr(2, temp.length - calculatorImageSrc.length - 1);
+	var temp = event.target.parentNode.firstChild.nodeValue;
+	var domain = temp.substr(2);
 	console.log("Calculating policy for " + domain);
 	addon.port.emit("inferModel", domain);
 }
@@ -234,7 +234,6 @@ addon.port.on("replyWithContent", function(msg){
 });
 
 addon.port.on("NOTVISIBLE", function(xpath){
-	var xpath = xpath.substr(8);
 	$('li[xpath="'+xpath+'"]').addClass('NOTVISIBLE');
 });
 

@@ -1,0 +1,25 @@
+<html>
+<head>
+	<link rel="stylesheet" type="text/css" href="showPolicy.css">
+	<script type="text/javascript" src="jquery-2.1.1.min.js"></script>
+</head>
+<body>
+<h2 align="center"><span>Host domain: </span><span id="hd"></span></h2>
+<h3 align="center"><span>3P domain: </span><span id="tpd"></span></h3>
+<h4 align="center"><span>Violating entries #: </span><span id="vn"></span></h3>
+<div class="typeHeader">Base:
+<ul id = "base"></ul>
+</div>
+<div class="typeHeader">Exact:
+<ul id = "exact"></ul>
+</div>
+<div class="typeHeader">Tag:
+<ul id = "tag"></ul>
+</div>
+<div class="typeHeader">Root:
+<ul id = "root"></ul>
+</div>
+<button id="outputButton" onclick="outputPolicy()">Output Policy</button>
+<script src='showPolicy.js'></script>
+</body>
+</html>

@@ -40,7 +40,10 @@ self.port.on("obtainNow", function(){
 
 self.port.on("inferModel", function(targetDomain){
 	var string = inferModelFromRawViolatingRecords(document.checkPolicyToString(), targetDomain);
-	self.port.emit("returningPolicy", string);
+	var tld = document.domain.split(".");
+	if (tld.length > 2) tld = tld[tld.length - 2] + "." + tld[tld.length - 1];
+	else tld = tld.join(".");
+	self.port.emit("returningPolicy", {policy:string, domain:tld, thirdPDomain:targetDomain});
 });
 
 var getPatterns = function(abs, agg){
@@ -268,6 +271,7 @@ var getPatterns = function(abs, agg){
 				var policy = abs[i].r;
 				var temp = policy.indexOf("|");
 				if (temp > -1) policy = policy.substr(temp + 1);
+				policy += ">!"
 				returnValue.push({p:policy, sp:"", n:1});
 			}
 			break;
@@ -279,6 +283,7 @@ var getPatterns = function(abs, agg){
 				var policy = abs[i].r;
 				var temp = policy.indexOf("|");
 				if (temp > -1) policy = policy.substr(temp + 1);
+				policy += ">!"
 				returnValue.push({p:policy, sp:"", n:1});
 			}
 			error("Too many iterations, dumping all other accesses in original form.");
@@ -366,7 +371,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 	rawData = rawData.substr(rawData.indexOf('---')+4);		//get rid of the first url declaration.
 	rawData = rawData.substr(0, rawData.length-5);
 	domains = rawData.split("tpd: ");
-	var policies = {base:[], tag:[], root:[], sub:[], exact:[]};
+	var policies = {base:[], tag:[], root:[], sub:[], exact:[], totalViolatingEntries:0};
 	var data = {};
 	var i,j;
 	for (i = 0; i < domains.length; i++){
@@ -426,6 +431,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				}
 			}
 		}
+		policies.totalViolatingEntries = dataDomain.violatingEntries.length;
 		//Handle possible scenarios like //SCRIPT>GetSrc first.
 		var cache = {};
 		for (var k in tagPolicyValues) {
@@ -555,8 +561,36 @@ self.port.on("scroll", function(msg){
 	element.scrollIntoView();
 });
 
+function addElementOverlay(element, color, identifier, originalXPath){
+	if (element == null){
+		if (originalXPath) self.port.emit("elementNotFound",originalXPath);
+		return;
+	}
+	var h = element.offsetHeight;
+	var w = element.offsetWidth;
+	var offset = $(element).offset();
+	if (h == 0 || w == 0 || offset.left < 0 || offset.top < 0){
+		//invisible element, notify and don't do anything
+		if (originalXPath) self.port.emit("elementNotVisible",originalXPath);
+		return;
+	}
+	somethingToDisplay = true;
+	var e = document.createElement('div');
+	e.style.position = "absolute";
+	e.style.left = offset.left.toString() + "px";
+	e.style.top = offset.top.toString() + "px";
+	e.style.backgroundColor = color;
+	e.style.height = h.toString() + "px";
+	e.style.width = w.toString() + "px";
+	e.style.zIndex = "100";
+	e.style.borderStyle = "solid";
+	e.style.borderWidth = "medium";
+	e.style.borderColor = "blue";
+	e.setAttribute('visualizer_overlay',identifier);		//here this is important to let remove function remove the correct overlay.
+	document.body.appendChild(e);
+}
+
 function display(xpath, color){
-	var xpath = xpath;
 	var xpathBeforeTruncation = xpath;
 	var ti = xpath.indexOf('#text');
 	if (ti != -1){
@@ -586,42 +620,32 @@ function display(xpath, color){
 		return;
 	}
 	var element = getElementByXpath(xpath);
-	if (element == null){
-		self.port.emit("elementNotFound",xpath);
-		return;
-	}
-	var h = element.offsetHeight;
-	var w = element.offsetWidth;
-	var offset = $(element).offset();
-	if (h == 0 || w == 0 || offset.left < 0 || offset.top < 0){
-		//invisible element, notify and don't do anything
-		self.port.emit("elementNotVisible",xpath);
-		return;
-	}
-	var color = color;
-	somethingToDisplay = true;
-	var e = document.createElement('div');
-	e.style.position = "absolute";
-	e.style.left = offset.left.toString() + "px";
-	e.style.top = offset.top.toString() + "px";
-	e.style.backgroundColor = color;
-	e.style.height = h.toString() + "px";
-	e.style.width = w.toString() + "px";
-	e.style.zIndex = "100";
-	e.style.borderStyle = "solid";
-	e.style.borderWidth = "medium";
-	e.style.borderColor = "blue";
-	e.setAttribute('visualizer_overlay',xpathBeforeTruncation);		//here this is important to let remove function remove the correct overlay.
-	document.body.appendChild(e);
+	addElementOverlay(element, color, xpathBeforeTruncation, xpath);
+}
+
+function CSSDisplay(selector, color){
+	$(selector).each(function(){
+		addElementOverlay(this, color, selector);
+	});
 }
 
 self.port.on("display", function(msg){
 	display(msg.xpath, msg.color);
 });
 
+self.port.on("CSSDisplay", function(msg){
+	if (msg.CSSSelector != "") CSSDisplay(msg.CSSSelector, msg.color);
+	else display(msg.XPath, msg.color);
+});
+
 self.port.on("stop", function(msg){
 	var xpath = msg.xpath;
 	$('div[visualizer_overlay="'+xpath+'"]').remove();
+});
+
+self.port.on("RemoveCSSDisplay", function(msg){
+	if (msg.CSSSelector != "") $('div[visualizer_overlay="'+msg.CSSSelector+'"]').remove();
+	else $('div[visualizer_overlay="'+msg.XPath+'"]').remove();
 });
 
 self.port.on("getContent", function(msg){
