@@ -82,6 +82,7 @@ var getPatterns = function(abs, agg){
 				var maxMatches = -1;
 				for (j = 0; j < abs.length; j++){
 					if (!abs[j].a.hasOwnProperty(agg[i].n) || abs[j].excluded) continue;
+					if (headPattern.length >= abs[j].a[agg[i].n].length) continue;
 					var c = abs[j].a[agg[i].n].substr(headPattern.length,1);
 					if (curC.hasOwnProperty(c)) {
 						curC[c]++;
@@ -116,7 +117,8 @@ var getPatterns = function(abs, agg){
 				var maxMatches = -1;
 				for (j = 0; j < abs.length; j++){
 					if (!abs[j].a.hasOwnProperty(agg[i].n) || abs[j].excluded) continue;
-					var c = abs[j].a[agg[i].n].substr(abs[j].a[agg[i].n].length - tailPattern.length - 1,1);
+					if (tailPattern.length >= abs[j].a[agg[i].n].length) continue;
+					var c = abs[j].a[agg[i].n].substr( - tailPattern.length - 1,1);
 					if (curC.hasOwnProperty(c)) {
 						curC[c]++;
 						if (maxMatches < curC[c]) {
@@ -134,45 +136,68 @@ var getPatterns = function(abs, agg){
 					if (prevMaxMatches == 0) prevMaxMatches = maxMatches;
 					for (j = 0; j < abs.length; j++){
 						if (!abs[j].a.hasOwnProperty(agg[i].n)) abs[j].excluded = false;
-						else abs[j].excluded = (maxC != abs[j].a[agg[i].n].substr(abs[j].a[agg[i].n].length - tailPattern.length - 1,1));
+						else abs[j].excluded = (maxC != abs[j].a[agg[i].n].substr( - tailPattern.length - 1,1));
 					}
 					tailPattern = maxC + tailPattern;
 				}
 			}
-			var headMatchNumber = 0;
-			var tailMatchNumber = 0;
+			//MatchRate is how accurate this head pattern matches targets, the lower the better, the best is 1.
+			var headMatchRate = 0;
+			var tailMatchRate = 0;
 			//construct real head pattern and tail pattern
 			var tagName = agg[i].n.substr(0, agg[i].n.indexOf(">"));
 			var attrName = agg[i].n.substr(tagName.length + 1);
-			if (headPattern != "") {
-				headPattern = tagName + "[" + attrName + "^='" + headPattern + "']";
-				headMatchNumber = getElementsByCSS(headPattern).length;
-				//confirm the pattern doesn't over-include other unrelated nodes
-				if (headMatchNumber > maxHeadMatch) headMatchNumber = 0;
-			}
-			if (tailPattern != "") {
-				tailPattern = tagName + "[" + attrName + "$='" + tailPattern + "']";
-				tailMatchNumber = getElementsByCSS(tailPattern).length;
-				//confirm the pattern doesn't over-include other unrelated nodes
-				if (tailMatchNumber > maxTailMatch) tailMatchNumber = 0;
-			}
 			if (headPattern == "" && tailPattern == ""){
 				//test if simply having this attribute can be a unique identifier.
-				headPattern = tagName + "[" + attrName + "]";
-				headMatchNumber = getElementsByCSS(headPattern).length;
-				//confirm the pattern doesn't over-include other unrelated nodes
-				if (headMatchNumber > agg[i].f) headMatchNumber = 0;
+				var pattern = tagName + "[" + attrName + "]";
+				var matchRate = getElementsByCSS(pattern).length / agg[i].f;
+				if (matchRate < 4) {
+					patterns.push({p:pattern, n:agg[i].f, r:matchRate});
+				}
 			}
-			if (headMatchNumber == 0 && tailMatchNumber == 0) continue;
-			else if (headMatchNumber >= tailMatchNumber) patterns.push({p:headPattern, n:headMatchNumber});
-			else patterns.push({p:tailPattern, n:tailMatchNumber});
+			else {
+				if (headPattern != "" && maxHeadMatch > 0) {
+					headPattern = tagName + "[" + attrName + "^='" + headPattern + "']";
+					headMatchRate = getElementsByCSS(headPattern).length / maxHeadMatch;
+					if (headMatchRate >= 4) {
+						headMatchRate = 0;		//This describer is too inacurrate, cannot use.
+						maxHeadMatch = 0;
+					}
+				}
+				if (tailPattern != "" && maxTailMatch > 0) {
+					tailPattern = tagName + "[" + attrName + "$='" + tailPattern + "']";
+					tailMatchRate = getElementsByCSS(tailPattern).length / maxTailMatch;
+					if (tailMatchRate >= 4) {
+						tailMatchRate = 0;		//This describer is too inacurrate, cannot use.
+						maxTailMatch = 0;
+					}
+				}
+				//priorize the number of elements matched, then the accuracy rate.
+				if (maxHeadMatch == 0 && maxTailMatch == 0) continue;
+				else if (maxHeadMatch != 0 && maxTailMatch == 0) patterns.push({p:headPattern, r:headMatchRate, n: maxHeadMatch});
+				else if (maxHeadMatch == 0 && maxTailMatch != 0) patterns.push({p:tailPattern, r:tailMatchRate, n: maxTailMatch});
+				else if (maxHeadMatch > maxTailMatch) patterns.push({p:headPattern, r:headMatchRate, n: maxHeadMatch});
+				else if (maxHeadMatch < maxTailMatch) patterns.push({p:tailPattern, r:tailMatchRate, n: maxTailMatch});
+				else {
+					if (headMatchRate <= tailMatchRate) patterns.push({p:headPattern, r:headMatchRate, n: maxHeadMatch});
+					else patterns.push({p:tailPattern, r:tailMatchRate, n: maxTailMatch});
+				}
+			}
 		}
 		var maxMatchNumber = 0;
 		var maxPattern = "";
+		var maxMatchRate = 10000;		//initial value doesn't matter
 		for (i = 0; i < patterns.length; i++){
 			if (maxMatchNumber < patterns[i].n){
 				maxMatchNumber = patterns[i].n;
 				maxPattern = patterns[i].p;
+				maxMatchRate = patterns[i].r;
+			}
+			else if (maxMatchNumber == patterns[i].n) {
+				if (maxMatchRate > patterns[i].r) {
+					maxPattern = patterns[i].p;
+					maxMatchRate = patterns[i].r;
+				}
 			}
 		}
 		if (maxPattern != "") {
@@ -516,8 +541,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 		//For all of the above, categorize them as Ads/Widgets, or getting contents by looking at whether they have appendChild-like APIs called
 		//For the rest unclassified, prompt suspicious tag and ask the developer (user).
 	}
-	console.log(policies);
-	//return policies;
+	return policies;
 }
 
 self.port.on("scroll", function(msg){

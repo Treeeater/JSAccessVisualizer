@@ -198,7 +198,7 @@ function hoverOut(event){
 function calculatorUIClicked(event){
 	var temp = event.target.parentNode.innerHTML;
 	var domain = temp.substr(2, temp.length - calculatorImageSrc.length - 1);
-	console.log(domain);
+	console.log("Calculating policy for " + domain);
 	addon.port.emit("inferModel", domain);
 }
 

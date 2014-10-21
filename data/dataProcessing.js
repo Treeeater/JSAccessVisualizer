@@ -379,8 +379,15 @@ function RecordsPerSite(url){
 	};
 }
 	
+function postMsg(w, msg){
+	console.log("sent");
+	w.postMessage(msg, "*");
+}
+
 function showPolicyToUser(msg){
-	console.log(msg);
+	var w = window.open("showPolicy.html", "policywindow", "height=800, width=800");
+	var message = msg;
+	w.addEventListener('load', postMsg.bind(this, w, message), true);
 }
 
 function Record(t, r, a, rw){
