@@ -14,29 +14,36 @@ function receiveMessage(event)
   var i = 0;
   for (i = 0; i < d.exact.length; i++){
 	var toAppend = document.createElement("li");
-	toAppend.innerHTML = "<span class='clickable'>" + d.exact[i].p + "</span>" + "<input class='check' type='checkbox'></input>";
+	toAppend.innerHTML = "<span class='clickable output'>" + d.exact[i].p + "</span><span style='color:blue'> matches " + d.exact[i].n + " entries</span>" + "<input class='check' type='checkbox'></input>";
 	$(toAppend).addClass("policyEntry");
 	document.getElementById("exact").appendChild(toAppend);
 	mapXPathToCSS[d.exact[i].p] = d.exact[i].sp;
   }
   for (i = 0; i < d.root.length; i++){
 	var toAppend = document.createElement("li");
-	toAppend.innerHTML = "<span>" + d.root[i] + "</span>" + "<input class='check' type='checkbox'></input>";
+	toAppend.innerHTML = "<span class='output'>" + d.root[i].p + "</span><span style='color:blue'> matches " + d.root[i].n + " entries </span><input class='check' type='checkbox'></input>";
 	$(toAppend).addClass("policyEntry");
 	document.getElementById("root").appendChild(toAppend);
   }
   for (i = 0; i < d.tag.length; i++){
 	var toAppend = document.createElement("li");
-	toAppend.innerHTML = "<span>" + d.tag[i] + "</span>" + "<input class='check' type='checkbox'></input>";
+	toAppend.innerHTML = "<span class='output'>" + d.tag[i].p + "</span><span style='color:blue'> matches " + d.tag[i].n + " entries </span>" + "<input class='check' type='checkbox'></input>";
 	$(toAppend).addClass("policyEntry");
 	document.getElementById("tag").appendChild(toAppend);
+  }
+  for (i = 0; i < d.parent.length; i++){
+	var toAppend = document.createElement("li");
+	toAppend.innerHTML = "<span class='output'>" + d.parent[i].p + "</span><span style='color:blue'> matches " + d.parent[i].n + " entries </span>" + "<input class='check' type='checkbox'></input>";
+	$(toAppend).addClass("policyEntry");
+	document.getElementById("parent").appendChild(toAppend);
   }
 }
 
 function collectPolicies(){
 	var retVal = "";
-	$("input:checked").parents().children("span").each(function (){
+	$("input:checked").parents().children("span.output").each(function (){
 		if ($(this).parent().parent().attr("id") == "root") retVal+="root:";
+		if ($(this).parent().parent().attr("id") == "parent") retVal+="^";
 		retVal += $(this).text();
 		retVal += "\n";
 	});
@@ -46,6 +53,10 @@ function collectPolicies(){
 function outputPolicy(){
 	var policyToOutput = collectPolicies();
 	extWindow.postMessage({type:"output", policy: policyToOutput, hd: hd, tpd: tpd}, "*");
+}
+
+function checkAll(event){
+	$(":checkbox").prop('checked', event.target.checked);
 }
 
 $(document).on("click", "span.clickable", null, function(){

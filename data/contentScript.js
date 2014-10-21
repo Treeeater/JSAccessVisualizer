@@ -239,7 +239,7 @@ var getPatterns = function(abs, agg){
 				}
 			}
 			maxPattern = "//" + tagName + "[@" + attrName + "='" + attrValue + "']>!";		//TODO: >! could be too relaxed. This can be further tightened with analysis, but we leave this for future work.
-			returnValue.push({p:maxPattern, sp:selectorPattern, n:maxMatchNumber});
+			returnValue.push({p:maxPattern, sp:selectorPattern});
 			
 			//update agg and abs array to reflect this node has been matched:
 			for (i = 0; i < toEliminate.length; i++){
@@ -272,7 +272,7 @@ var getPatterns = function(abs, agg){
 				var temp = policy.indexOf("|");
 				if (temp > -1) policy = policy.substr(temp + 1);
 				policy += ">!"
-				returnValue.push({p:policy, sp:"", n:1});
+				returnValue.push({p:policy, sp:""});
 			}
 			break;
 		}
@@ -284,7 +284,7 @@ var getPatterns = function(abs, agg){
 				var temp = policy.indexOf("|");
 				if (temp > -1) policy = policy.substr(temp + 1);
 				policy += ">!"
-				returnValue.push({p:policy, sp:"", n:1});
+				returnValue.push({p:policy, sp:""});
 			}
 			error("Too many iterations, dumping all other accesses in original form.");
 			break;
@@ -371,7 +371,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 	rawData = rawData.substr(rawData.indexOf('---')+4);		//get rid of the first url declaration.
 	rawData = rawData.substr(0, rawData.length-5);
 	domains = rawData.split("tpd: ");
-	var policies = {base:[], tag:[], root:[], sub:[], exact:[], totalViolatingEntries:0};
+	var policies = {base:[], tag:[], root:[], sub:[], exact:[], parent:[], totalViolatingEntries:0};
 	var data = {};
 	var i,j;
 	for (i = 0; i < domains.length; i++){
@@ -442,7 +442,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 					cache[tagName] = document.getElementsByTagName(tagName).length;
 				}
 				if (tagPolicyValues[k] >= cache[tagName]/3) {
-					policies.tag.push(k);
+					policies.tag.push({p:k, n:tagPolicyValues[k]});
 					//Erase the handled accesses from dataDomain.violatingEntries.
 					//it's ok to write loop here as we do not expect this to happen many times
 					for (j = 0; j < dataDomain.violatingEntries.length; j++){
@@ -455,7 +455,11 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				}
 			}
 		}
-		var remainingAccesses = dataDomain.violatingEntries;
+		var remainingAccesses = [];
+		//make a deep copy of violatingEntries.
+		for (var k = 0; k < dataDomain.violatingEntries.length; k++){
+			remainingAccesses.push(dataDomain.violatingEntries[k]);
+		}
 		//start with deepmost access, get an array of deepmost nodes (if one node xpath is another one's prefix, ignore this for now)
 		var deepNodes = [];
 		var shallowNodes = [];
@@ -513,10 +517,22 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 		//deepInsertionNodes contains deep nodes that have accessed insertion APIs.
 		//Now, for these nodes, discover their pattern --- e.g. //DIV[@id="ad-.*"].  If impossible, list themselves
 		policies.exact = learnPatterns(deepInsertionNodes);
+		//get how many entries the exact patterns matched:
+		for (var k = 0; k < policies.exact.length; k++){
+			var match = 0;
+			if (policies.exact[k].sp != ""){
+				for (var l = 0; l < dataDomain.violatingEntries.length; l++){
+					var node = getElementByXpath(dataDomain.violatingEntries[l].r.split('|')[0]);
+					if (node.mozMatchesSelector(policies.exact[k].sp)) match++;
+				}
+			}
+			else match = 1;
+			policies.exact[k].n = match;
+		}
 		//check root policy entry type possibility.
 		//note: root policies are not meant to be exclusive.  Deriving one root policy will not lead to excluding its matching accesses.
 		//Therefore, root policies may overlap each other in terms of coverage.
-		for (k = 0; k < deepInsertionNodes.length; k++){
+		for (var k = 0; k < deepInsertionNodes.length; k++){
 			var nodeXPath = deepInsertionNodes[k].xpath.split("|")[0];
 			var l = nodeXPath.split('/').length - 1;
 			if (l <= 3) continue;
@@ -527,20 +543,27 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 			var matchIndex = j;
 			if (matchIndex == policies.exact.length) continue;			//no match for this node (probably no policy generated to match this)
 			var roots = {};				//{'scrollLeft': 3}
+			var parents = {};			//{'scrollLeft': 3}
 			for (j = 0; j < shallowNodes.length; j++){
 				var sx = shallowNodes[j].r.split('|')[0];
 				if (nodeXPath.indexOf(sx) != 0) continue;				
 				var key = ">" + shallowNodes[j].a + ((shallowNodes[j].n != "") ? (":" + shallowNodes[j].n) : "");
 				if (roots.hasOwnProperty(key)) {
-					roots[key] += (sx.split('/').length - 1);
+					roots[key] += 1;
 				}
-				else roots[key] = (sx.split('/').length - 1);
+				else roots[key] = 1;
+				if (sx.split('/').length == l) {
+					parents[key] = 1;
+				}
 			}
-			var shouldEqualTo = (l * (l - 1)) / 2 - 3;		//-3 is required because /html and /html/body or /html/head is ignored.
 			for (var key in roots){
-				if (roots[key] == shouldEqualTo){
+				if (roots[key] > 1 || ((!parents.hasOwnProperty(key)) && roots[key] == 1)){
 					var toPush = policies.exact[matchIndex].p.substr(0, policies.exact[matchIndex].p.length - 2) + key;
-					if (policies.root.indexOf(toPush) == -1) policies.root.push(toPush);
+					if (policies.root.map(function(o){return o.p}).indexOf(toPush) == -1) policies.root.push({p:toPush, n: roots[key]});
+				}
+				else if (parents.hasOwnProperty(key) && roots[key] == 1){
+					var toPush = policies.exact[matchIndex].p.substr(0, policies.exact[matchIndex].p.length - 2) + key;
+					if (policies.parent.map(function(o){return o.p}).indexOf(toPush) == -1) policies.parent.push({p:toPush, n: 1});
 				}
 			}
 		}

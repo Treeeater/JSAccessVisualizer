@@ -1,5 +1,6 @@
 <html>
 <head>
+	<title>Summary of Policies</title>
 	<link rel="stylesheet" type="text/css" href="showPolicy.css">
 	<script type="text/javascript" src="jquery-2.1.1.min.js"></script>
 </head>
@@ -19,6 +20,10 @@
 <div class="typeHeader">Root:
 <ul id = "root"></ul>
 </div>
+<div class="typeHeader">Parent:
+<ul id = "parent"></ul>
+</div>
+<input onclick = "checkAll(event)" type="checkbox">Check all!</input>
 <button id="outputButton" onclick="outputPolicy()">Output Policy</button>
 <script src='showPolicy.js'></script>
 </body>
