@@ -371,7 +371,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 	rawData = rawData.substr(rawData.indexOf('---')+4);		//get rid of the first url declaration.
 	rawData = rawData.substr(0, rawData.length-5);
 	domains = rawData.split("tpd: ");
-	var policies = {base:[], tag:[], root:[], sub:[], exact:[], parent:[], totalViolatingEntries:0};
+	var policies = {base:[], tag:[], root:[], sub:[], exact:[], parent:[], unclassified:[], totalViolatingEntries:0};
 	var data = {};
 	var i,j;
 	for (i = 0; i < domains.length; i++){
@@ -520,13 +520,22 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 		//get how many entries the exact patterns matched:
 		for (var k = 0; k < policies.exact.length; k++){
 			var match = 0;
-			if (policies.exact[k].sp != ""){
-				for (var l = 0; l < dataDomain.violatingEntries.length; l++){
-					var node = getElementByXpath(dataDomain.violatingEntries[l].r.split('|')[0]);
-					if (node.mozMatchesSelector(policies.exact[k].sp)) match++;
+			for (var l = 0; l < dataDomain.violatingEntries.length; l++){
+				var node = getElementByXpath(dataDomain.violatingEntries[l].r.split('|')[0]);
+				if (policies.exact[k].sp != ""){
+					if (node.mozMatchesSelector(policies.exact[k].sp)) {
+						match++;
+						dataDomain.violatingEntries.splice(l, 1);			//violatingEntries will be modified here.
+						l--;
+					}
+				}
+				else {
+					match = 1;
+					dataDomain.violatingEntries.splice(l, 1);			//violatingEntries will be modified here.
+					l--;
+					break;
 				}
 			}
-			else match = 1;
 			policies.exact[k].n = match;
 		}
 		//check root policy entry type possibility.
@@ -567,8 +576,11 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				}
 			}
 		}
-		//For all of the above, categorize them as Ads/Widgets, or getting contents by looking at whether they have appendChild-like APIs called
 		//For the rest unclassified, prompt suspicious tag and ask the developer (user).
+		var dv = dataDomain.violatingEntries;
+		for (var j = 0; j < dv.length; j++){
+			policies.unclassified.push({p:dv[j].r.split('|')[0] + ">" + dv[j].a + (dv[j].n == "" ? "" : ":" + dv[j].n), n: 1});
+		}
 	}
 	return policies;
 }
@@ -587,7 +599,7 @@ self.port.on("scroll", function(msg){
 function addElementOverlay(element, color, identifier, originalXPath){
 	if (element == null){
 		if (originalXPath) self.port.emit("elementNotFound",originalXPath);
-		return;
+		return null;
 	}
 	var h = element.offsetHeight;
 	var w = element.offsetWidth;
@@ -595,7 +607,7 @@ function addElementOverlay(element, color, identifier, originalXPath){
 	if (h == 0 || w == 0 || offset.left < 0 || offset.top < 0){
 		//invisible element, notify and don't do anything
 		if (originalXPath) self.port.emit("elementNotVisible",originalXPath);
-		return;
+		return element;
 	}
 	somethingToDisplay = true;
 	var e = document.createElement('div');
@@ -611,6 +623,7 @@ function addElementOverlay(element, color, identifier, originalXPath){
 	e.style.borderColor = "blue";
 	e.setAttribute('visualizer_overlay',identifier);		//here this is important to let remove function remove the correct overlay.
 	document.body.appendChild(e);
+	return element;
 }
 
 function display(xpath, color){
@@ -622,7 +635,7 @@ function display(xpath, color){
 		var ele = getElementByXpath(truncatedXPath);
 		if (ele == null){
 			self.port.emit("elementNotFound",xpath);
-			return;
+			return null;
 		}
 		if (ele.childNodes.length != 1) {
 			//parent node has more than one child, don't scroll into view or highlight, just return text content.
@@ -631,7 +644,7 @@ function display(xpath, color){
 			temp = temp.substr(6,temp.indexOf(']')-1);	//get index of this text element
 			var text = $(ele).contents().filter(function() {return this.nodeType === 3;})[parseInt(temp)-1].nodeValue;
 			self.port.emit('replyWithContent', {text:text, xpath:xpath});
-			return;
+			return null;
 		}
 		//if its parent only has this textnode as child, highlight its parent.
 		xpath = truncatedXPath;
@@ -640,15 +653,18 @@ function display(xpath, color){
 		//this could be a FB customized node like FB:like
 		//just ignore it.
 		self.port.emit("elementNotVisible",xpath);
-		return;
+		return null;
 	}
 	var element = getElementByXpath(xpath);
-	addElementOverlay(element, color, xpathBeforeTruncation, xpath);
+	return addElementOverlay(element, color, xpathBeforeTruncation, xpath);
 }
 
 function CSSDisplay(selector, color){
+	var i = 0;
 	$(selector).each(function(){
-		addElementOverlay(this, color, selector);
+		var ele = addElementOverlay(this, color, selector);
+		if (i == 0 && !!ele) ele.scrollIntoView();  
+		i++;
 	});
 }
 
@@ -657,8 +673,11 @@ self.port.on("display", function(msg){
 });
 
 self.port.on("CSSDisplay", function(msg){
-	if (msg.CSSSelector != "") CSSDisplay(msg.CSSSelector, msg.color);
-	else display(msg.XPath, msg.color);
+	if (!!msg.CSSSelector) CSSDisplay(msg.CSSSelector, msg.color);
+	else {
+		var ele = display(msg.XPath, msg.color);
+		if (!!ele) ele.scrollIntoView();
+	}
 });
 
 self.port.on("stop", function(msg){
@@ -667,7 +686,7 @@ self.port.on("stop", function(msg){
 });
 
 self.port.on("RemoveCSSDisplay", function(msg){
-	if (msg.CSSSelector != "") $('div[visualizer_overlay="'+msg.CSSSelector+'"]').remove();
+	if (!!msg.CSSSelector) $('div[visualizer_overlay="'+msg.CSSSelector+'"]').remove();
 	else $('div[visualizer_overlay="'+msg.XPath+'"]').remove();
 });
 

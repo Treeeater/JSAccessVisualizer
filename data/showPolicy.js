@@ -37,6 +37,12 @@ function receiveMessage(event)
 	$(toAppend).addClass("policyEntry");
 	document.getElementById("parent").appendChild(toAppend);
   }
+  for (i = 0; i < d.unclassified.length; i++){
+	var toAppend = document.createElement("li");
+	toAppend.innerHTML = "<span class='output clickable'>" + d.unclassified[i].p + "</span><span style='color:blue'> matches " + d.unclassified[i].n + " entries </span>" + "<input class='check' type='checkbox'></input>";
+	$(toAppend).addClass("policyEntry");
+	document.getElementById("unclassified").appendChild(toAppend);
+  }
 }
 
 function collectPolicies(){
