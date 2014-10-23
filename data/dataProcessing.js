@@ -388,13 +388,25 @@ window.addEventListener("message", handleMessage, false);
 
 function handleMessage(event){
 	var d = event.data;
-	if (d.type == "output") {
+	if (d.type == "outputExtra") {
 		if (d.hd == "" || d.tpd == "") {
 			alert("cannot retrieve host domain or third party domain, error!");
 			return;
 		}
 		var msg = {};
 		msg.fileName = "policies\\extra\\" + d.hd + "\\" + d.tpd + ".txt";
+		msg.content = d.policy;
+		if (msg.content.substr(-1, 1) == "\n") msg.content = msg.content.substr(0, msg.content.length - 1);
+		msg.content = "\n" + msg.content;
+		addon.port.emit("appendContentToFile", msg);
+	}
+	else if (d.type == "outputBase") {
+		if (d.hd == "" || d.tpd == "") {
+			alert("cannot retrieve host domain or third party domain, error!");
+			return;
+		}
+		var msg = {};
+		msg.fileName = "policies\\" + d.tpd + ".txt";
 		msg.content = d.policy;
 		if (msg.content.substr(-1, 1) == "\n") msg.content = msg.content.substr(0, msg.content.length - 1);
 		msg.content = "\n" + msg.content;

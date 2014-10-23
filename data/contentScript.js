@@ -30,6 +30,17 @@ var error = function(msg){
 	console.log(msg);
 }
 
+function getRootDomain(url){
+	var domain = url;
+	if (url.indexOf('http')!=-1) domain = domain.substr(domain.indexOf('/')+2,domain.length);			//get rid of protocol if there's one.
+	if (domain.indexOf('/')!=-1) domain = domain.substr(0,domain.indexOf('/'));					//get rid of paths if there's one.
+	if (domain.indexOf(':')!=-1) domain = domain.substr(0,domain.indexOf(':'));					//get rid of port if there's one.
+	var domainArray = domain.split('.');
+	if (domainArray.length < 2) return domain;			//error. Never return TLD.
+	domain = domainArray[domainArray.length-2] + '.' + domainArray[domainArray.length-1];
+	return domain;
+}
+
 self.port.on("nav", function(msg){
 	document.location = msg;
 });
@@ -397,7 +408,9 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 		var tagPolicyValues = {};
 		if (curData.length <= 2) continue;		//all reported accesses are matched with existing policy.
 		//Collect unmatched cases
+		policyBase = {};
 		while (curData.length > 4 && curData.substr(0, 4) == "_r: "){
+			policies.totalViolatingEntries++;
 			curData = curData.substr(4);
 			var thisData = "";
 			if (curData.indexOf("_r: ") != -1) {
@@ -429,9 +442,65 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 					else tagPolicyValues[key]++;
 					dataDomain.violatingEntries.push({r:resource, a:additional, n:nodeInfo, t:tagName});		//r = resource, a = apiname, n = argvalue.
 				}
+				else {
+					//suggest base policies:
+					var policy = resource + ">" + additional;
+					if (!!nodeInfo) {
+						policy += ":";
+						if (nodeInfo.indexOf("[o]") == 0) {
+							policy += "\\[o\\]";
+							nodeInfo = nodeInfo.substr(3);
+						}
+						if (nodeInfo.indexOf("<") == 0){
+							var startingGT = nodeInfo.indexOf(">");
+							while (startingGT != -1){
+								if (nodeInfo.indexOf("'") < nodeInfo.indexOf('"')){
+									if (nodeInfo.substr(0, startingGT).split("'").length % 2 == 1) break;
+								}
+								else {
+									if (nodeInfo.substr(0, startingGT).split('"').length % 2 == 1) break;
+								}
+								startingGT = nodeInfo.indexOf(">", startingGT + 1);
+							}
+							if (startingGT != -1) {
+								policy += nodeInfo.substr(0, startingGT + 1);
+								nodeInfo = nodeInfo.substr(startingGT + 1);
+								if (nodeInfo[nodeInfo.length - 1] == ">"){
+									var endingLT = nodeInfo.lastIndexOf("<");
+									if (endingLT > 0) {
+										policy += ".*";
+										policy += nodeInfo.substr(endingLT);
+									}
+									else if (endingLT == -1) policy += ".*";
+									else policy += nodeInfo.substr(endingLT);
+								}
+								else policy += ".*";
+							}
+							else policy += ".*";
+						}
+						else {
+							policy += nodeInfo;
+						}
+					}
+					//indirect push, n might not be 1
+					if (policyBase.hasOwnProperty(policy)) policyBase[policy]++;
+					else policyBase[policy] = 1;
+				}
+			}
+			else {
+				//Suggest base policies.
+				//directly push, n must equal to 1.
+				var policy = resource;
+				if (resource == "Outgoing network traffic") {
+					policy = resource + ":" + getRootDomain(additional);
+				}
+				policies.base.push({p:policy, n: 1});
 			}
 		}
-		policies.totalViolatingEntries = dataDomain.violatingEntries.length;
+		//aggregate results from policyBase to policies.base
+		for (var policy in policyBase){
+			policies.base.push({p:policy, n: policyBase[policy]});
+		}
 		//Handle possible scenarios like //SCRIPT>GetSrc first.
 		var cache = {};
 		for (var k in tagPolicyValues) {
@@ -555,7 +624,11 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 			var parents = {};			//{'scrollLeft': 3}
 			for (j = 0; j < shallowNodes.length; j++){
 				var sx = shallowNodes[j].r.split('|')[0];
-				if (nodeXPath.indexOf(sx) != 0) continue;				
+				if (nodeXPath.indexOf(sx) != 0) {
+					shallowNodes[j].shouldDelete = false;
+					continue;
+				}
+				//this shallowNodes matches as a prefix for a deeper nodes.
 				var key = ">" + shallowNodes[j].a + ((shallowNodes[j].n != "") ? (":" + shallowNodes[j].n) : "");
 				if (roots.hasOwnProperty(key)) {
 					roots[key] += 1;
@@ -564,6 +637,8 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				if (sx.split('/').length == l) {
 					parents[key] = 1;
 				}
+				//mark and get rid of this in violatingEntries in the future:
+				shallowNodes[j].shouldDelete = true;
 			}
 			for (var key in roots){
 				if (roots[key] > 1 || ((!parents.hasOwnProperty(key)) && roots[key] == 1)){
@@ -576,8 +651,19 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				}
 			}
 		}
-		//For the rest unclassified, prompt suspicious tag and ask the developer (user).
 		var dv = dataDomain.violatingEntries;
+		//get rid of marked shallowNodes:
+		for (var j = 0; j < shallowNodes.length; j++){
+			if (shallowNodes[j].shouldDelete){
+				for (var k = 0; k < dv.length; k++){
+					if (dv[k].r == shallowNodes[j].r) {
+						dv.splice(k, 1);
+						k--;
+					}
+				}
+			}
+		}
+		//For the rest unclassified, prompt suspicious tag and ask the developer (user).
 		for (var j = 0; j < dv.length; j++){
 			policies.unclassified.push({p:dv[j].r.split('|')[0] + ">" + dv[j].a + (dv[j].n == "" ? "" : ":" + dv[j].n), n: 1});
 		}
