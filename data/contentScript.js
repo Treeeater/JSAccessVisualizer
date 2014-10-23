@@ -373,7 +373,7 @@ var learnPatterns = function(deepInsertionNodes){
 }
 
 var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
-	retVal = "";
+	retVal = {};
 	//2nd arg is optional, when specified, only infer the specified domain's policy.
 	//rawData is the raw data obtained from document.checkPolicyToString
 	//Parse data to records
@@ -382,12 +382,12 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 	rawData = rawData.substr(rawData.indexOf('---')+4);		//get rid of the first url declaration.
 	rawData = rawData.substr(0, rawData.length-5);
 	domains = rawData.split("tpd: ");
-	var policies = {base:[], tag:[], root:[], sub:[], exact:[], parent:[], unclassified:[], totalViolatingEntries:0};
 	var data = {};
 	var i,j;
 	for (i = 0; i < domains.length; i++){
 		var curData = domains[i];
 		if (curData == "") continue;
+		var policies = {base:[], tag:[], root:[], sub:[], exact:[], parent:[], unclassified:[], totalViolatingEntries:0};
 		var domain = curData.substr(0, curData.indexOf(":\n"));
 		data[domain] = {};
 		var dataDomain = data[domain];			//alias pointing to the same object.
@@ -408,7 +408,8 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 		var tagPolicyValues = {};
 		if (curData.length <= 2) continue;		//all reported accesses are matched with existing policy.
 		//Collect unmatched cases
-		policyBase = {};
+		var policyBase = {};
+		var outgoingNetworkRecorded = {};
 		while (curData.length > 4 && curData.substr(0, 4) == "_r: "){
 			policies.totalViolatingEntries++;
 			curData = curData.substr(4);
@@ -493,9 +494,19 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				var policy = resource;
 				if (resource == "Outgoing network traffic") {
 					policy = resource + ":" + getRootDomain(additional);
+					if (outgoingNetworkRecorded.hasOwnProperty(policy)) {
+						outgoingNetworkRecorded[policy]++;
+					}
+					else {
+						outgoingNetworkRecorded[policy] = 1;
+					}
 				}
-				policies.base.push({p:policy, n: 1});
+				else policies.base.push({p:policy, n: 1});
 			}
+		}
+		//aggregate outgoingNetworkRecorded
+		for (var policy in outgoingNetworkRecorded){
+			policies.base.push({p:policy, n: outgoingNetworkRecorded[policy]});
 		}
 		//aggregate results from policyBase to policies.base
 		for (var policy in policyBase){
@@ -667,8 +678,10 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 		for (var j = 0; j < dv.length; j++){
 			policies.unclassified.push({p:dv[j].r.split('|')[0] + ">" + dv[j].a + (dv[j].n == "" ? "" : ":" + dv[j].n), n: 1});
 		}
+		retVal[domain] = policies;
 	}
-	return policies;
+	if (!!targetDomain) return retVal[targetDomain];
+	else return retVal;
 }
 
 self.port.on("scroll", function(msg){
