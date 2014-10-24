@@ -1,7 +1,7 @@
 var outputToFile = true;
 var clearContentUponNav = true;
 var logMsgCount = 0;
-var matchRateThreshold = 1;		// <= is ok, > is not.
+var matchRateThreshold = 1;		// <= is ok, > is not.  higher the relaxer, lower the stricter.
 
 var getElementByXpath = function (path) {
     return document.evaluate(path, document, null, 9, null).singleNodeValue;
@@ -196,6 +196,7 @@ var getPatterns = function(abs, agg){
 					if (!abs[j].a.hasOwnProperty(agg[i].n) || abs[j].excluded) continue;
 					if (tailPattern.length >= abs[j].a[agg[i].n].length) continue;
 					var c = abs[j].a[agg[i].n].substr( - tailPattern.length - 1,1);
+					if (c >= '0' && c <= '9') continue;		//digit is unlikely to be a pattern.
 					if (curC.hasOwnProperty(c)) {
 						curC[c]++;
 						if (maxMatches < curC[c]) {
@@ -932,6 +933,14 @@ window.addEventListener('beforeunload',function(){
 });
 
 self.port.emit("requestOutputToFile","");			//request update outputToFile variable.
+
+self.port.on("changeThreshold", function(){
+	var a = window.prompt("Set the matching threshold, the higher the more relaxed.", "1");
+	if (!!a){
+		matchRateThreshold = parseFloat(a);
+		self.port.emit("changedThreshold",a);
+	}
+});
 
 self.port.on("getIDXpathMapping", function(){
 	//send xpath - id map to sidebar

@@ -202,6 +202,14 @@ function calculatorUIClicked(event){
 	addon.port.emit("inferModel", domain);
 }
 
+function changeThreshold(){
+	addon.port.emit("changeThreshold","");
+}
+
+addon.port.on("changedThreshold", function(msg){
+	$("#matchThreshold").html(msg);
+});
+
 addon.port.on("recordFileRawData", function(msg){
 	resetContent();
 	fileRawData = msg.data;
@@ -254,7 +262,7 @@ addon.port.on("updateSBCBStatus", function(msg){
 
 addon.port.emit("updateSBCBStatus","");
 
-addon.port.on("clearSBContent", resetContent);
+addon.port.on("clearSBContent", resetContent.bind(this, true));
 
 addon.port.on("returningPolicy", showPolicyToUser);
 

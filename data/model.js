@@ -10,12 +10,6 @@ function Model(url){
 	this.specialRecords = {};
 }
 
-function resetContent(){
-	cacheID = undefined;
-	cacheXPath = undefined;
-	$("#mainList").html("");
-}
-
 function loadModel(){
 	addon.port.emit("pickFile","modelFileRawData");
 	resetContent();

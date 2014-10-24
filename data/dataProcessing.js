@@ -6,10 +6,11 @@ var processed;
 var preprocessed;
 var policyWindowHandler;
 
-function resetContent(){
+function resetContent(shouldResetThreshold){
 	cacheID = undefined;
 	cacheXPath = undefined;
 	$("#mainList").html("");
+	if (!!shouldResetThreshold) $("#matchThreshold").html("1");
 }
 
 function pickFile(){
