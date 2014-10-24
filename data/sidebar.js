@@ -220,7 +220,12 @@ addon.port.on("recordFileRawData", function(msg){
 
 addon.port.on("NOTFOUND", function(xpath){
 	var xpath = xpath.substr(8);
-	$("li[xpath='"+xpath+"']").addClass('NOTFOUND');
+	try {
+		$("li[xpath='"+xpath+"']").addClass('NOTFOUND');
+	}
+	catch(ex){
+		//could be the policy visualizer is calling, not found will not return to the correct sender, which is fine.
+	}
 });
 
 addon.port.on("replyWithContent", function(msg){
