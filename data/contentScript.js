@@ -73,7 +73,7 @@ var getSoloPattern = function (abs){
 			else p += "@" + attrNames[i] + "='" + attrValues[i] + "'";
 		}
 		if (c.length > 0) p += "@class='" + c.join(" ") + "'";
-		p += "]>!";
+		p += "]";
 		return p;
 	};
 	var constructSP = function(){
@@ -115,16 +115,20 @@ var getSoloPattern = function (abs){
 		if (document.querySelectorAll(retVal.sp).length == 1) return retVal;
 	}
 	//no selector can be unique, set sp to empty and p to xpath
-	retVal.p = retVal.xp + ">!";
+	retVal.p = retVal.xp;
 	retVal.sp = "";
 	return retVal;
 }
 
-var getPatterns = function(abs, agg){
+var getPatterns = function(constABS, agg){
 	var i;
 	var returnValue = [];
 	var iteration = 0;
 	var MAXITERATION = 5;
+	var abs = [];
+	for (var i = 0; i < constABS.length; i++){
+		abs.push(constABS[i]);
+	}
 	while (abs.length > 0 && iteration < MAXITERATION){
 		iteration++;
 		var patterns = [];
@@ -196,7 +200,7 @@ var getPatterns = function(abs, agg){
 					if (!abs[j].a.hasOwnProperty(agg[i].n) || abs[j].excluded) continue;
 					if (tailPattern.length >= abs[j].a[agg[i].n].length) continue;
 					var c = abs[j].a[agg[i].n].substr( - tailPattern.length - 1,1);
-					if (c >= '0' && c <= '9') continue;		//digit is unlikely to be a pattern.
+					if (c >= '0' && c <= '9') continue;		//digit at the end is unlikely to be a pattern.
 					if (curC.hasOwnProperty(c)) {
 						curC[c]++;
 						if (maxMatches < curC[c]) {
@@ -313,8 +317,8 @@ var getPatterns = function(abs, agg){
 					attrValue = ".*";
 				}
 			}
-			maxPattern = "//" + tagName + "[@" + attrName + "='" + attrValue + "']";		//TODO: >! could be too relaxed. This can be further tightened with analysis, but we leave this for future work.
-			returnValue.push({p:maxPattern + ">!", sp:selectorPattern, xp: maxPattern});
+			maxPattern = "//" + tagName + "[@" + attrName + "='" + attrValue + "']";		
+			returnValue.push({p:maxPattern, sp:selectorPattern, xp: maxPattern});
 			
 			//update agg and abs array to reflect this node has been matched:
 			for (i = 0; i < toEliminate.length; i++){
@@ -401,7 +405,7 @@ var learnPatterns = function(deepInsertionNodes){
 					}
 				}
 			}
-			abstractedList.push({r: deepInsertionNodes[i].xpath, n: node, a:attributeCandidates, f:deepInsertionNodes[i].forbidden});
+			abstractedList.push({r: deepInsertionNodes[i].xpath, n: node, a:attributeCandidates, f:deepInsertionNodes[i].forbidden, as:deepInsertionNodes[i].as, an:deepInsertionNodes[i].an});
 		}
 	}
 	//construct aggregatedAttrNames
@@ -420,9 +424,49 @@ var learnPatterns = function(deepInsertionNodes){
 	});
 	aggregatedAttrNames.splice(3, aggregatedAttrNames.length);			//only use the top three candidates for performance reasons.
 	var patterns = getPatterns(abstractedList, aggregatedAttrNames);
-	return patterns;
-	//TODO: Guess their parent and grandparents. This is not yet seen to be useful, but could benefit some sites in the future.
-	
+	var retVal = [];
+	var pushed = [];
+	//Now, add as and an to policies' end:
+	for (var i = 0; i < patterns.length; i++){
+		if (patterns[i].sp != "") {
+			for (var j = 0; j < abstractedList.length; j++){
+				if (abstractedList[j].n.mozMatchesSelector(patterns[i].sp)) {
+					for (var k = 0; k < abstractedList[j].as.length; k++){
+						var a = abstractedList[j].as[k];
+						var p = patterns[i].p + ">" + a;
+						var n = "";
+						if (!!abstractedList[j].an[k]) n = simplifyNodeInfo(abstractedList[j].an[k]);
+						if (n != "") p += ":" + n;
+						var key = p + patterns[i].sp + patterns[i].xp + a + n;
+						if (pushed.indexOf(key)==-1) {
+							pushed.push(key);
+							retVal.push({p:p, sp:patterns[i].sp, xp:patterns[i].xp, a:a, n:n});
+						}
+					}
+				}
+			}
+		}
+		else {
+			for (var j = 0; j < abstractedList.length; j++){
+				var matchedNode = getElementByXpath(patterns[i].xp);
+				if (abstractedList[j].n == matchedNode) {
+					for (var k = 0; k < abstractedList[j].as.length; k++){
+						var a = abstractedList[j].as[k];
+						var p = patterns[i].p + ">" + a;
+						var n = "";
+						if (!!abstractedList[j].an[k]) n = simplifyNodeInfo(abstractedList[j].an[k]);
+						if (n != "") p += ":" + n;
+						var key = p + patterns[i].sp + patterns[i].xp + a + n;
+						if (pushed.indexOf(key)==-1) {
+							pushed.push(key);
+							retVal.push({p:p, sp:patterns[i].sp, xp:patterns[i].xp, a:a, n:n});
+						}
+					}
+				}
+			}
+		}
+	}
+	return retVal;	
 	//XPATH to match tail pattern://div[substring(@id, string-length(@id)-1, 2)='gh']
 	//To match head pattern://div[starts-with(@id, 'g')]
 	//To count: count(//div), retrieve by result.numberValue
@@ -637,22 +681,26 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 			var insert = false;
 			var setAttributes = [];
 			var start = j;
+			var as = [];
+			var an = [];
 			//see how many after this is talking about the same node
 			while (true){
 				if (!insert) insert = (deepNodes[j].a == "InsertBefore" || deepNodes[j].a == "AppendChild" || deepNodes[j].a == "document.write" || deepNodes[j].a == "ReplaceChild" || deepNodes[j].a == "SetInnerHTML");
 				if (deepNodes[j].a == "SetAttribute") setAttributes.push(deepNodes[j].n);
 				else if (deepNodes[j].a.indexOf("Set") == 0) setAttributes.push(deepNodes[j].a.substr(3).toLowerCase());
 				//(setattributes could have duplicate, but max of two dup)
+				as.push(deepNodes[j].a);
+				an.push(deepNodes[j].n);
 				j++;
 				if (j >= deepNodes.length || deepNodes[j-1].r != deepNodes[j].r) break;
 			}
 			if (insert){
-				deepInsertionNodes.push({"xpath":deepNodes[j-1].r, "forbidden":setAttributes, "a":deepNodes[j-1].a, "n":deepNodes[j-1].n});
+				deepInsertionNodes.push({"xpath":deepNodes[j-1].r, "forbidden":setAttributes, "as":["!"], "an":[""]});		//for inserted nodes, don't care about specific API accessed
 				deepNodes.splice(start, j - start);
 				j = start;
 			}
 			else {
-				otherDeepNodes.push({"xpath":deepNodes[j-1].r, "forbidden":setAttributes, "a":deepNodes[j-1].a, "n":deepNodes[j-1].n});
+				otherDeepNodes.push({"xpath":deepNodes[j-1].r, "forbidden":setAttributes, "as":as, "an":an});
 			}
 		}
 		//deepInsertionNodes contains deep nodes that have accessed insertion APIs.
@@ -667,14 +715,14 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 					var vxpath = dataDomain.violatingEntries[l].r.split('|')[0];
 					var node = getElementByXpath(vxpath);
 					if (ps[k].sp != ""){
-						if (node.mozMatchesSelector(ps[k].sp)) {
+						if (node.mozMatchesSelector(ps[k].sp) && (ps[k].a=="!" || (ps[k].a == dataDomain.violatingEntries[l].a && (ps[k].n == "" || ps[k].n == dataDomain.violatingEntries[l].n)))) {
 							match++;
 							dataDomain.violatingEntries.splice(l, 1);			//violatingEntries will be modified here.
 							l--;
 						}
 					}
 					else {
-						if (ps[k].xp == vxpath){
+						if (ps[k].xp == vxpath && (ps[k].a=="!" || (ps[k].a == dataDomain.violatingEntries[l].a && (ps[k].n == "" || ps[k].n == dataDomain.violatingEntries[l].n)))){
 							match = 1;
 							dataDomain.violatingEntries.splice(l, 1);			//violatingEntries will be modified here.
 							l--;
@@ -722,11 +770,11 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				}
 				for (var key in roots){
 					if (roots[key] > 1 || ((!parents.hasOwnProperty(key)) && roots[key] == 1)){
-						var toPush = ps[matchIndex].p.substr(0, ps[matchIndex].p.length - 2) + key;
+						var toPush = ps[matchIndex].p.substr(0, ps[matchIndex].p.indexOf(">")) + key;
 						if (policies.root.map(function(o){return o.p}).indexOf(toPush) == -1) policies.root.push({p:toPush, n: roots[key]});
 					}
 					else if (parents.hasOwnProperty(key) && roots[key] == 1){
-						var toPush = ps[matchIndex].p.substr(0, ps[matchIndex].p.length - 2) + key;
+						var toPush = ps[matchIndex].p.substr(0, ps[matchIndex].p.indexOf(">")) + key;
 						if (policies.parent.map(function(o){return o.p}).indexOf(toPush) == -1) policies.parent.push({p:toPush, n: 1});
 					}
 				}
