@@ -33,12 +33,19 @@ function receiveMessage(event)
 	$(toAppend).addClass("policyEntry");
 	document.getElementById("base").appendChild(toAppend);
   }
-  for (i = 0; i < policy.exact.length; i++){
+  for (i = 0; i < policy.adWidget.length; i++){
 	var toAppend = document.createElement("li");
-	toAppend.innerHTML = "<span class='clickable output' index='"+ i.toString() +"'>" + escapeHTML(policy.exact[i].p) + "</span><span style='color:blue'> matches " + policy.exact[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><input class='check' type='checkbox' checked></input>";
+	toAppend.innerHTML = "<span class='clickable output' index='"+ i.toString() +"'>" + escapeHTML(policy.adWidget[i].p) + "</span><span style='color:blue'> matches " + policy.adWidget[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><input class='check' type='checkbox' checked></input>";
 	$(toAppend).addClass("policyEntry");
-	document.getElementById("exact").appendChild(toAppend);
-	mapXPathToCSS[policy.exact[i].p] = policy.exact[i].sp;
+	document.getElementById("adWidget").appendChild(toAppend);
+	mapXPathToCSS[policy.adWidget[i].p] = policy.adWidget[i].sp;
+  }
+  for (i = 0; i < policy.otherDeeps.length; i++){
+	var toAppend = document.createElement("li");
+	toAppend.innerHTML = "<span class='clickable output' index='"+ i.toString() +"'>" + escapeHTML(policy.otherDeeps[i].p) + "</span><span style='color:blue'> matches " + policy.otherDeeps[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><input class='check' type='checkbox' checked></input>";
+	$(toAppend).addClass("policyEntry");
+	document.getElementById("otherDeeps").appendChild(toAppend);
+	mapXPathToCSS[policy.otherDeeps[i].p] = policy.otherDeeps[i].sp;
   }
   for (i = 0; i < policy.root.length; i++){
 	var toAppend = document.createElement("li");
@@ -122,4 +129,7 @@ $(document).on("click", "button.delete", null, function(){
 	$(this).parent().remove();
 });
 
+$(document).on("click", "div.typeHeader>input:checkbox", null, function(){
+	$(this).parent().children("ul").children().children("input:checkbox").prop('checked', $(this).prop('checked'));
+});
 window.addEventListener("message", receiveMessage, false);
