@@ -499,7 +499,9 @@ var simplifyNodeInfo = function(nodeInfo){
 		nodeInfo = nodeInfo.substr(3);
 	}
 	if (nodeInfo.indexOf("<") == 0){
-		nodeInfo = nodeInfo.replace(/\d+/g, "\\d+");
+		nodeInfo = nodeInfo.replace(/\d+/g, "\\d*");
+		nodeInfo = nodeInfo.replace(/\?/g, "\\?");
+		nodeInfo = nodeInfo.replace(/\./g, "\\.");
 		var startingGT = nodeInfo.indexOf(">");
 		while (startingGT != -1){
 			if (nodeInfo.indexOf("'") < nodeInfo.indexOf('"')){
@@ -511,7 +513,25 @@ var simplifyNodeInfo = function(nodeInfo){
 			startingGT = nodeInfo.indexOf(">", startingGT + 1);
 		}
 		if (startingGT != -1) {
-			policy += nodeInfo.substr(0, startingGT + 1);
+			var openingTag = nodeInfo.substr(0, startingGT + 1);
+			if (openingTag.indexOf("<script" == 0) || openingTag.indexOf("<iframe") == 0 || openingTag.indexOf("<img") == 0) {
+				var tagName;
+				if (openingTag.indexOf("<script") == 0) tagName = "script";
+				if (openingTag.indexOf("<iframe") == 0) tagName = "iframe";
+				if (openingTag.indexOf("<img") == 0) tagName = "img";
+				if (openingTag.indexOf("src") > -1){
+					openingTag = openingTag.substr(openingTag.indexOf("src") + 3);
+					var seperator;
+					if (openingTag.indexOf("\"") == -1) seperator = "'";
+					else if (openingTag.indexOf("'") == -1) seperator = "\"";
+					else seperator = (openingTag.indexOf("\"") < openingTag.indexOf("'")) ? "\"" : "'";
+					openingTag = openingTag.substr(openingTag.indexOf(seperator) + 1);
+					var url = openingTag.substr(0, openingTag.indexOf(seperator));
+					var domain = getRootDomain(url);
+					openingTag = "<" + tagName + "[^<>]*src\\s*=\\s*" + seperator + "[^" + seperator + "]*" + domain + "/[^<>]*>";
+				}
+			}
+			policy += openingTag;
 			if (startingGT != nodeInfo.length - 1){
 				nodeInfo = nodeInfo.substr(startingGT + 1);
 				if (nodeInfo.length > 0 && nodeInfo[nodeInfo.length - 1] == ">"){
@@ -586,7 +606,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 			if (thisData.indexOf("\n_n: ")!=-1){
 				additional = thisData.substr(0, thisData.indexOf("\n_n: "));
 				nodeInfo = thisData.substr(thisData.indexOf("\n_n: ") + 5);
-				nodeInfo = nodeInfo.substr(0, nodeInfo.length - 1);
+				if (nodeInfo[nodeInfo.length - 1] == "\n") nodeInfo = nodeInfo.substr(0, nodeInfo.length - 1);
 			}
 			else if (thisData[thisData.length - 1] == "\n") additional = thisData.substr(0, thisData.length - 1);
 			else additional = thisData;
@@ -739,14 +759,14 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 					var vxpath = dataDomain.violatingEntries[l].r.split('|')[0];
 					var node = getElementByXpath(vxpath);
 					if (ps[k].sp != "" && !!node && node.nodeType == 1){
-						if (node.mozMatchesSelector(ps[k].sp) && (ps[k].a=="!" || (ps[k].a == dataDomain.violatingEntries[l].a && (ps[k].n == "" || ps[k].n == dataDomain.violatingEntries[l].n)))) {
+						if (node.mozMatchesSelector(ps[k].sp) && (ps[k].a=="!" || (ps[k].a == dataDomain.violatingEntries[l].a && (ps[k].n == "" || ps[k].n == dataDomain.violatingEntries[l].n || dataDomain.violatingEntries[l].n.match(ps[k].n))))) {
 							match++;
 							dataDomain.violatingEntries.splice(l, 1);			//violatingEntries will be modified here.
 							l--;
 						}
 					}
 					else {
-						if (ps[k].xp == vxpath && (ps[k].a=="!" || (ps[k].a == dataDomain.violatingEntries[l].a && (ps[k].n == "" || ps[k].n == dataDomain.violatingEntries[l].n)))){
+						if (ps[k].xp == vxpath && (ps[k].a=="!" || (ps[k].a == dataDomain.violatingEntries[l].a && (ps[k].n == "" || ps[k].n == dataDomain.violatingEntries[l].n || dataDomain.violatingEntries[l].n.match(ps[k].n))))){
 							match = 1;
 							dataDomain.violatingEntries.splice(l, 1);			//violatingEntries will be modified here.
 							l--;
