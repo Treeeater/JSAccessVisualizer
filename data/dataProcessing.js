@@ -423,7 +423,7 @@ function handleMessage(event){
 
 function showPolicyToUser(msg){
 	if (policyWindowHandler != undefined) policyWindowHandler.close();
-	policyWindowHandler = window.open("showPolicy.html", "policywindow", "height=800, width=1500, scrollbars=yes");
+	policyWindowHandler = window.open("showPolicy.html", "policywindow", "height=800, width=1200, left=600, top=100, scrollbars=yes");
 	var message = msg;
 	policyWindowHandler.addEventListener('load', postMsg.bind(this, message), true);
 }

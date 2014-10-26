@@ -4,7 +4,18 @@ var logMsgCount = 0;
 var matchRateThreshold = 1;		// <= is ok, > is not.  higher the relaxer, lower the stricter.
 
 var getElementByXpath = function (path) {
-    return document.evaluate(path, document, null, 9, null).singleNodeValue;
+	try {
+		var i = path.indexOf("/#text[");
+		if (i > -1) {
+			var index = path.substr(i+7);
+			index = index.substr(0, index.indexOf("]"));
+			path = path.substr(0, i) + "/text()[" + index + "]";
+		}
+		return document.evaluate(path, document, null, 9, null).singleNodeValue;
+	}
+	catch(ex){
+		alert(path);
+	}
 };
 
 var getElementsByXpath = function (path) {
@@ -69,6 +80,15 @@ var getSoloPattern = function (abs){
 		var p = "//" + node.tagName + "[";
 		var c = [];
 		for (var i = 0; i < attrNames.length; i++){
+			if (attrValues[i].indexOf("http") > -1 && (attrNames[i] == "src" || attrNames[i] == "action")){
+				//value is likely a url, do some optimization here:
+				var v = attrValues[i];
+				var protocol = v.substr(0, v.indexOf("/"));
+				var domain = v.substr(v.indexOf("/")+2);
+				if (domain.indexOf("/") > -1) domain = domain.substr(0, domain.indexOf("/"));
+				domain = ".*" + domain.split(".").splice(-2, 2).join("\\.");
+				attrValues[i] = protocol + "//" + domain + ".*";
+			}
 			if (attrNames[i] == "class") c.push(attrValues[i]);
 			else p += "@" + attrNames[i] + "='" + attrValues[i] + "'";
 		}
@@ -373,7 +393,7 @@ var learnPatterns = function(deepInsertionNodes){
 	var aggregatedAttrF = [];
 	for (i = 0; i < deepInsertionNodes.length; i++){
 		var node = getElementByXpath(deepInsertionNodes[i].xpath.split("|")[0]);
-		if (node != null) {
+		if (node != null && node.nodeType == 1) {
 			var a = node.attributes;
 			var attributeCandidates = {};
 			for (j = 0; j < a.length; j++){
@@ -479,6 +499,7 @@ var simplifyNodeInfo = function(nodeInfo){
 		nodeInfo = nodeInfo.substr(3);
 	}
 	if (nodeInfo.indexOf("<") == 0){
+		nodeInfo = nodeInfo.replace(/\d+/g, "\\d+");
 		var startingGT = nodeInfo.indexOf(">");
 		while (startingGT != -1){
 			if (nodeInfo.indexOf("'") < nodeInfo.indexOf('"')){
@@ -491,17 +512,19 @@ var simplifyNodeInfo = function(nodeInfo){
 		}
 		if (startingGT != -1) {
 			policy += nodeInfo.substr(0, startingGT + 1);
-			nodeInfo = nodeInfo.substr(startingGT + 1);
-			if (nodeInfo[nodeInfo.length - 1] == ">"){
-				var endingLT = nodeInfo.lastIndexOf("<");
-				if (endingLT > 0) {
-					policy += ".*";
-					policy += nodeInfo.substr(endingLT);
+			if (startingGT != nodeInfo.length - 1){
+				nodeInfo = nodeInfo.substr(startingGT + 1);
+				if (nodeInfo.length > 0 && nodeInfo[nodeInfo.length - 1] == ">"){
+					var endingLT = nodeInfo.lastIndexOf("<");
+					if (endingLT > 0) {
+						policy += ".*";
+						policy += nodeInfo.substr(endingLT);
+					}
+					else if (endingLT == -1) policy += ".*";
+					else policy += nodeInfo.substr(endingLT);
 				}
-				else if (endingLT == -1) policy += ".*";
-				else policy += nodeInfo.substr(endingLT);
+				else policy += ".*";
 			}
-			else policy += ".*";
 		}
 		else policy += ".*";
 	}
@@ -582,7 +605,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				}
 				else {
 					//suggest base policies:
-					var policy = resource + ">" + additional;
+					var policy = temp + ">" + additional;
 					if (!!nodeInfo) policy += ":" + simplifyNodeInfo(nodeInfo);
 					//indirect push, n might not be 1
 					if (policyBase.hasOwnProperty(policy)) policyBase[policy]++;
@@ -714,7 +737,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				for (var l = 0; l < dataDomain.violatingEntries.length; l++){
 					var vxpath = dataDomain.violatingEntries[l].r.split('|')[0];
 					var node = getElementByXpath(vxpath);
-					if (ps[k].sp != ""){
+					if (ps[k].sp != "" && node.nodeType == 1){
 						if (node.mozMatchesSelector(ps[k].sp) && (ps[k].a=="!" || (ps[k].a == dataDomain.violatingEntries[l].a && (ps[k].n == "" || ps[k].n == dataDomain.violatingEntries[l].n)))) {
 							match++;
 							dataDomain.violatingEntries.splice(l, 1);			//violatingEntries will be modified here.
@@ -744,7 +767,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				if (l <= 3) continue;
 				var node = getElementByXpath(nodeXPath);
 				for (j = 0; j < ps.length; j++){
-					if (ps[j].sp != "" && node.mozMatchesSelector(ps[j].sp)) break;
+					if (ps[j].sp != "" && node.nodeType == 1 && node.mozMatchesSelector(ps[j].sp)) break;
 					if (ps[j].sp == "" && nodeXPath == ps[j].xp) break;
 				}
 				var matchIndex = j;
