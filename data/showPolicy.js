@@ -29,45 +29,45 @@ function receiveMessage(event)
   var i = 0;
   for (i = 0; i < policy.base.length; i++){
 	var toAppend = document.createElement("li");
-	toAppend.innerHTML = "<span class='output' index='"+ i.toString() +"'>" + escapeHTML(policy.base[i].p) + "</span><span class='matchCount' style='color:blue'> matches " + policy.base[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><input class='check' type='checkbox' checked>";
+	toAppend.innerHTML = "<span class='output' index='"+ i.toString() +"'>" + escapeHTML(policy.base[i].p) + "</span><span class='matchCount' style='color:blue'> matches " + policy.base[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><button class='move2Gen'>move2Gen</button><input class='check' type='checkbox' checked>";
 	$(toAppend).addClass("policyEntry");
 	document.getElementById("base").appendChild(toAppend);
   }
   for (i = 0; i < policy.adWidget.length; i++){
 	var toAppend = document.createElement("li");
-	toAppend.innerHTML = "<span class='clickable output' index='"+ i.toString() +"'>" + escapeHTML(policy.adWidget[i].p) + "</span><span class='matchCount' style='color:blue'> matches " + policy.adWidget[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><button class='move2Base'>move2Base</button><input class='check' type='checkbox' checked></input>";
+	toAppend.innerHTML = "<span class='clickable output' index='"+ i.toString() +"'>" + escapeHTML(policy.adWidget[i].p) + "</span><span class='matchCount' style='color:blue'> matches " + policy.adWidget[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><button class='move2Base'>move2Base</button><button class='move2Gen'>move2Gen</button><input class='check' type='checkbox' checked></input>";
 	$(toAppend).addClass("policyEntry");
 	document.getElementById("adWidget").appendChild(toAppend);
 	mapXPathToCSS[policy.adWidget[i].p] = policy.adWidget[i].sp;
   }
   for (i = 0; i < policy.otherDeeps.length; i++){
 	var toAppend = document.createElement("li");
-	toAppend.innerHTML = "<span class='clickable output' index='"+ i.toString() +"'>" + escapeHTML(policy.otherDeeps[i].p) + "</span><span class='matchCount' style='color:blue'> matches " + policy.otherDeeps[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><button class='move2Base'>move2Base</button><input class='check' type='checkbox' checked></input>";
+	toAppend.innerHTML = "<span class='clickable output' index='"+ i.toString() +"'>" + escapeHTML(policy.otherDeeps[i].p) + "</span><span class='matchCount' style='color:blue'> matches " + policy.otherDeeps[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><button class='move2Base'>move2Base</button><button class='move2Gen'>move2Gen</button><input class='check' type='checkbox' checked></input>";
 	$(toAppend).addClass("policyEntry");
 	document.getElementById("otherDeeps").appendChild(toAppend);
 	mapXPathToCSS[policy.otherDeeps[i].p] = policy.otherDeeps[i].sp;
   }
   for (i = 0; i < policy.root.length; i++){
 	var toAppend = document.createElement("li");
-	toAppend.innerHTML = "<span class='output' index='"+ i.toString() +"'>" + escapeHTML(policy.root[i].p) + "</span><span class='matchCount' style='color:blue'> matches " + policy.root[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><button class='move2Base'>move2Base</button><input class='check' type='checkbox' checked></input>";
+	toAppend.innerHTML = "<span class='output' index='"+ i.toString() +"'>" + escapeHTML(policy.root[i].p) + "</span><span class='matchCount' style='color:blue'> matches " + policy.root[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><button class='move2Base'>move2Base</button><button class='move2Gen'>move2Gen</button><input class='check' type='checkbox' checked></input>";
 	$(toAppend).addClass("policyEntry");
 	document.getElementById("root").appendChild(toAppend);
   }
   for (i = 0; i < policy.tag.length; i++){
 	var toAppend = document.createElement("li");
-	toAppend.innerHTML = "<span class='output' index='"+ i.toString() +"'>" + escapeHTML(policy.tag[i].p) + "</span><span class='matchCount' style='color:blue'> matches " + policy.tag[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><button class='move2Base'>move2Base</button><input class='check' type='checkbox' checked></input>";
+	toAppend.innerHTML = "<span class='output' index='"+ i.toString() +"'>" + escapeHTML(policy.tag[i].p) + "</span><span class='matchCount' style='color:blue'> matches " + policy.tag[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><button class='move2Base'>move2Base</button><button class='move2Gen'>move2Gen</button><input class='check' type='checkbox' checked></input>";
 	$(toAppend).addClass("policyEntry");
 	document.getElementById("tag").appendChild(toAppend);
   }
   for (i = 0; i < policy.parent.length; i++){
 	var toAppend = document.createElement("li");
-	toAppend.innerHTML = "<span class='output' index='"+ i.toString() +"'>" + escapeHTML(policy.parent[i].p) + "</span><span class='matchCount' style='color:blue'> matches " + policy.parent[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><button class='move2Base'>move2Base</button><input class='check' type='checkbox' checked></input>";
+	toAppend.innerHTML = "<span class='output' index='"+ i.toString() +"'>" + escapeHTML(policy.parent[i].p) + "</span><span class='matchCount' style='color:blue'> matches " + policy.parent[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><button class='move2Base'>move2Base</button><button class='move2Gen'>move2Gen</button><input class='check' type='checkbox' checked></input>";
 	$(toAppend).addClass("policyEntry");
 	document.getElementById("parent").appendChild(toAppend);
   }
   for (i = 0; i < policy.unclassified.length; i++){
 	var toAppend = document.createElement("li");
-	toAppend.innerHTML = "<span class='output clickable' index='"+ i.toString() +"'>" + escapeHTML(policy.unclassified[i].p) + "</span><span class='matchCount' style='color:blue'> matches " + policy.unclassified[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><button class='move2Base'>move2Base</button><input class='check' type='checkbox' checked></input>";
+	toAppend.innerHTML = "<span class='output clickable' index='"+ i.toString() +"'>" + escapeHTML(policy.unclassified[i].p) + "</span><span class='matchCount' style='color:blue'> matches " + policy.unclassified[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><button class='move2Base'>move2Base</button><button class='move2Gen'>move2Gen</button><input class='check' type='checkbox' checked></input>";
 	$(toAppend).addClass("policyEntry");
 	document.getElementById("unclassified").appendChild(toAppend);
   }
@@ -76,6 +76,7 @@ function receiveMessage(event)
 function collectPolicies(){
 	var extraPolicies = "";
 	var basePolicies = "";
+	var genericPolicies = "";
 	var index = 0;
 	var id;
 	$("input:checked").parents().children("span.output").each(function (){
@@ -83,19 +84,23 @@ function collectPolicies(){
 		if (id == "base") {
 			basePolicies += $(this).text() + "\n";
 		}
+		else if (id == "generic"){
+			genericPolicies += $(this).text() + "\n";
+		}
 		else {
 			if (id == "root") extraPolicies+="root:";
 			if (id == "parent") extraPolicies+="^";
 			extraPolicies += $(this).text() + "\n";
 		}
 	});
-	return [basePolicies, extraPolicies];
+	return [basePolicies, extraPolicies, genericPolicies];
 }
 
 function outputPolicy(){
 	var policyToOutput = collectPolicies();
 	extWindow.postMessage({type:"outputBase", policy: policyToOutput[0], hd: hd, tpd: tpd}, "*");
 	extWindow.postMessage({type:"outputExtra", policy: policyToOutput[1], hd: hd, tpd: tpd}, "*");
+	extWindow.postMessage({type:"outputGeneric", policy: policyToOutput[2], hd: hd, tpd: tpd}, "*");
 }
 
 function checkAll(event){
@@ -166,6 +171,11 @@ $(document).on("click", "button.edit", null, function(){
 
 $(document).on("click", "button.move2Base", null, function(){
 	$(this).parent().appendTo($("#base"));
+	$(this).remove();
+});
+
+$(document).on("click", "button.move2Gen", null, function(){
+	$(this).parent().appendTo($("#generic"));
 	$(this).remove();
 });
 

@@ -389,29 +389,27 @@ window.addEventListener("message", handleMessage, false);
 
 function handleMessage(event){
 	var d = event.data;
-	if (d.type == "outputExtra") {
+	if (d.type.indexOf('output')==0){
 		if (d.hd == "" || d.tpd == "") {
 			alert("cannot retrieve host domain or third party domain, error!");
 			return;
 		}
 		var msg = {};
-		msg.fileName = "policies\\extra\\" + d.hd + "\\" + d.tpd + ".txt";
-		msg.content = d.policy;
-		if (msg.content.substr(-1, 1) == "\n") msg.content = msg.content.substr(0, msg.content.length - 1);
-		msg.content = "\n" + msg.content;
-		addon.port.emit("appendContentToFile", msg);
-	}
-	else if (d.type == "outputBase") {
-		if (d.hd == "" || d.tpd == "") {
-			alert("cannot retrieve host domain or third party domain, error!");
-			return;
+		if (d.type == "outputExtra") {
+			msg.fileName = "policies\\extra\\" + d.hd + "\\" + d.tpd + ".txt";
 		}
-		var msg = {};
-		msg.fileName = "policies\\" + d.tpd + ".txt";
+		else if (d.type == "outputBase") {
+			msg.fileName = "policies\\" + d.tpd + ".txt";
+		}
+		else if (d.type == "outputGeneric"){
+			msg.fileName = "policies\\extra\\" + d.hd + "\\generic.txt";
+		}
 		msg.content = d.policy;
-		if (msg.content.substr(-1, 1) == "\n") msg.content = msg.content.substr(0, msg.content.length - 1);
-		msg.content = "\n" + msg.content;
-		addon.port.emit("appendContentToFile", msg);
+		if (!!d.policy) {
+			if (msg.content.substr(-1, 1) == "\n") msg.content = msg.content.substr(0, msg.content.length - 1);
+			msg.content = "\n" + msg.content;
+			addon.port.emit("appendContentToFile", msg);
+		}
 	}
 	else if (d.type == "clicked") {
 		addon.port.emit("CSSDisplay", {XPath: d.XPath, CSSSelector: d.selector, color: "hsla(290,60%,70%,0.5)"});

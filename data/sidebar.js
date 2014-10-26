@@ -227,7 +227,6 @@ addon.port.on("recordFileRawData", function(msg){
 });
 
 addon.port.on("NOTFOUND", function(xpath){
-	var xpath = xpath.substr(8);
 	try {
 		$("li[xpath='"+xpath+"']").addClass('NOTFOUND');
 	}

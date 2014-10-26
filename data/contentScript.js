@@ -162,7 +162,7 @@ var getPatterns = function(constABS, agg){
 				var attrName = agg[i].n.substr(tagName.length + 8);		//8: >class__
 				var p = tagName + "."+ attrName;
 				matchNumber = getElementsByCSS(p).length;
-				if (matchNumber > agg[i].f || matchNumber <= 1) continue;		//this accidentally matches other nodes.
+				if (matchNumber > agg[i].f * matchRateThreshold || matchNumber <= 1) continue;		//this accidentally matches other nodes.
 				else {
 					patterns.push({p:p, n:matchNumber});
 					classPatterns.push(p);
@@ -393,7 +393,7 @@ var learnPatterns = function(deepInsertionNodes){
 	var aggregatedAttrF = [];
 	for (i = 0; i < deepInsertionNodes.length; i++){
 		var node = getElementByXpath(deepInsertionNodes[i].xpath.split("|")[0]);
-		if (node != null && node.nodeType == 1) {
+		if (!!node && node.nodeType == 1) {
 			var a = node.attributes;
 			var attributeCandidates = {};
 			for (j = 0; j < a.length; j++){
@@ -588,7 +588,8 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				nodeInfo = thisData.substr(thisData.indexOf("\n_n: ") + 5);
 				nodeInfo = nodeInfo.substr(0, nodeInfo.length - 1);
 			}
-			else additional = thisData.substr(0, thisData.length - 1);
+			else if (thisData[thisData.length - 1] == "\n") additional = thisData.substr(0, thisData.length - 1);
+			else additional = thisData;
 			//Ignore base access (/html, document.cookie, etc.)
 			if (resource[0] == "/"){
 				var temp = resource.split("|")[0];
@@ -737,7 +738,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				for (var l = 0; l < dataDomain.violatingEntries.length; l++){
 					var vxpath = dataDomain.violatingEntries[l].r.split('|')[0];
 					var node = getElementByXpath(vxpath);
-					if (ps[k].sp != "" && node.nodeType == 1){
+					if (ps[k].sp != "" && !!node && node.nodeType == 1){
 						if (node.mozMatchesSelector(ps[k].sp) && (ps[k].a=="!" || (ps[k].a == dataDomain.violatingEntries[l].a && (ps[k].n == "" || ps[k].n == dataDomain.violatingEntries[l].n)))) {
 							match++;
 							dataDomain.violatingEntries.splice(l, 1);			//violatingEntries will be modified here.
@@ -767,7 +768,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				if (l <= 3) continue;
 				var node = getElementByXpath(nodeXPath);
 				for (j = 0; j < ps.length; j++){
-					if (ps[j].sp != "" && node.nodeType == 1 && node.mozMatchesSelector(ps[j].sp)) break;
+					if (ps[j].sp != "" && !!node && node.nodeType == 1 && node.mozMatchesSelector(ps[j].sp)) break;
 					if (ps[j].sp == "" && nodeXPath == ps[j].xp) break;
 				}
 				var matchIndex = j;
