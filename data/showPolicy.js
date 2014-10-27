@@ -31,7 +31,7 @@ function receiveMessage(event)
 	for (i = 0; i < policy[ptype].length; i++) {
 		var p = policy[ptype][i].p.split(">")[0];
 		var a = policy[ptype][i].p.split(">")[1];
-		if (a.indexOf("#text")==0) {
+		if (!!a && a.indexOf("#text")==0) {
 			p = p + "/#text[*]";
 			a = a.substr(5);
 			policy[ptype][i].p = p + ">" + a;
@@ -133,6 +133,7 @@ $(document).on("click", "span.clickable", null, function(){
 
 function constructCSSFromXPath(p){
 	var retVal = "";
+	if (p.indexOf("sub:") == 0) p = p.substr(4);
 	if (p.indexOf("//") == 0){
 		retVal = p.substr(2, p.indexOf("[") - 2);
 		p = p.substr(p.indexOf("[")+1);
