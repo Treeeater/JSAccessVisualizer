@@ -45,6 +45,7 @@ var error = function(msg){
 function getRootDomain(url){
 	var domain = url;
 	if (url.indexOf('http')!=-1) domain = domain.substr(domain.indexOf('/')+2,domain.length);			//get rid of protocol if there's one.
+	else if (url.indexOf('//')==0) domain = domain.substr(2,domain.length);		//get rid of the starting // if there's one.
 	if (domain.indexOf('/')!=-1) domain = domain.substr(0,domain.indexOf('/'));					//get rid of paths if there's one.
 	if (domain.indexOf(':')!=-1) domain = domain.substr(0,domain.indexOf(':'));					//get rid of port if there's one.
 	var domainArray = domain.split('.');
@@ -610,6 +611,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 			}
 			else if (thisData[thisData.length - 1] == "\n") additional = thisData.substr(0, thisData.length - 1);
 			else additional = thisData;
+			var textPushed = [];
 			//Ignore base access (/html, document.cookie, etc.)
 			if (resource[0] == "/"){
 				var temp = resource.split("|")[0];
@@ -619,10 +621,28 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 					var tagName = temp.split("/");
 					tagName = tagName[tagName.length - 1];
 					tagName = tagName.substr(0, tagName.indexOf('['));
+					//If the tagName is #text, change the resource to its parent, and add text to additional
+					if (tagName == "#text") {
+						temp = temp.split("/");
+						temp.splice(-1, 1);
+						temp = temp.join("/");
+						var temp2 = "";
+						if (resource.split("|").length > 1) {
+							temp2 = resource.split("|")[1].split("/");
+							temp2.splice(-1, 1);
+							temp2 = temp2.join("/");
+						}
+						if (!!temp2) resource = temp + "|" + temp2;
+						additional = "#text" + additional;
+					}
 					var key = "//" + tagName + ">" + additional + ":" + nodeInfo;
 					if (!tagPolicyValues[key]) tagPolicyValues[key] = 1;
 					else tagPolicyValues[key]++;
-					dataDomain.violatingEntries.push({r:resource, a:additional, n:nodeInfo, t:tagName, shouldDelete:false});		//r = resource, a = apiname, n = argvalue, shouldDelete is a helper for getting rid of root-matching records.
+					if (textPushed.indexOf(resource + additional + nodeInfo) == -1){
+						//make sure we don't push duplicates. Although the trace should not contain duplicates, we have shortened the records to text nodes, leaving only its parent in the resource, which might create duplicates.
+						dataDomain.violatingEntries.push({r:resource, a:additional, n:nodeInfo, t:tagName, shouldDelete:false});		//r = resource, a = apiname, n = argvalue, shouldDelete is a helper for getting rid of root-matching records.
+						textPushed.push(resource + additional + nodeInfo);
+					}
 				}
 				else {
 					//suggest base policies:
@@ -664,7 +684,8 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				var tagName = k.substr(2);
 				tagName = tagName.substr(0,tagName.indexOf('>'));
 				if (!cache[tagName]) {
-					cache[tagName] = document.getElementsByTagName(tagName).length;
+					if (tagName == "#text") cache[tagName] = document.evaluate("count(//text())", document, null, 1, null).numberValue;
+					else cache[tagName] = document.getElementsByTagName(tagName).length;
 				}
 				if (tagPolicyValues[k] >= cache[tagName]/3) {
 					policies.tag.push({p:k, n:tagPolicyValues[k]});

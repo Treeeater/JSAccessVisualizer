@@ -27,6 +27,17 @@ function receiveMessage(event)
   document.getElementById("vn").innerHTML = policy.totalViolatingEntries;
   extWindow = event.source;
   var i = 0;
+  for (var ptype in policy){
+	for (i = 0; i < policy[ptype].length; i++) {
+		var p = policy[ptype][i].p.split(">")[0];
+		var a = policy[ptype][i].p.split(">")[1];
+		if (a.indexOf("#text")==0) {
+			p = p + "/#text[*]";
+			a = a.substr(5);
+			policy[ptype][i].p = p + ">" + a;
+		}
+	}
+  }
   for (i = 0; i < policy.base.length; i++){
 	var toAppend = document.createElement("li");
 	toAppend.innerHTML = "<span class='output'>" + escapeHTML(policy.base[i].p) + "</span><span class='matchCount' style='color:blue'> matches " + policy.base[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><button class='move2Gen'>move2Gen</button><input class='check' type='checkbox' checked>";
@@ -110,6 +121,7 @@ function checkAll(event){
 $(document).on("click", "span.clickable", null, function(){
 	var xpath = $(this).text();
 	xpath = xpath.substr(0, xpath.indexOf('>'));
+	if (xpath.indexOf("#text[") > -1) xpath = xpath.substr(0, xpath.indexOf("#text["));
 	if ($(this).hasClass("clicked")){
 		extWindow.postMessage({type:"remove", selector: mapXPathToCSS[$(this).text()], XPath:xpath}, "*");
 	}
