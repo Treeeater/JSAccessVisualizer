@@ -188,6 +188,8 @@ $(document).on("click", "button.move2Base", null, function(){
 });
 
 $(document).on("click", "button.move2Gen", null, function(){
+	if ($(this).parent().parent().attr("id") == "root") $(this).parent().children("span.output").html("root:" + $(this).parent().children("span.output").text());
+	if ($(this).parent().parent().attr("id") == "parent") $(this).parent().children("span.output").html("^" + $(this).parent().children("span.output").text());
 	$(this).parent().appendTo($("#generic"));
 	$(this).remove();
 });
