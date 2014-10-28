@@ -635,7 +635,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 						if (!!temp2) resource = temp + "|" + temp2;
 						additional = "#text" + additional;
 					}
-					var key = "//" + tagName + ">" + additional + ":" + nodeInfo;
+					var key = "//" + tagName + ">" + additional + (nodeInfo != "" ? ":" + nodeInfo : "");
 					if (!tagPolicyValues[key]) tagPolicyValues[key] = 1;
 					else tagPolicyValues[key]++;
 					if (textPushed.indexOf(resource + additional + nodeInfo) == -1){
@@ -693,7 +693,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 					//it's ok to write loop here as we do not expect this to happen many times
 					for (j = 0; j < dv.length; j++){
 						var e = dv[j];
-						if (k == "//" + e.t + ">" + e.a + ":" + e.n) {
+						if (k == "//" + e.t + ">" + e.a + (e.n != "" ? ":" + e.n : "")) {
 							dv.splice(j, 1);
 							j--;
 						}
@@ -802,7 +802,8 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 					if (j >= deepNodes.length || deepNodes[j-1].r != deepNodes[j].r) break;
 				}
 				if (insert){
-					insertionNodes.push({"xpath":deepNodes[j-1].r, "forbidden":(allowEverything ? [] : setAttributes), "as":["!"], "an":[""]});		//for inserted nodes, don't care about specific API accessed
+					an = an.map(function(o){if (o.indexOf("\\[o\\]")==0 || o.indexOf("<")==0) return ""; else return o;});
+					insertionNodes.push({"xpath":deepNodes[j-1].r, "forbidden":(allowEverything ? [] : setAttributes), "as":as, "an":an});		//for inserted nodes, don't care about specific API accessed
 					deepNodes.splice(start, j - start);
 					j = start;
 				}
@@ -829,7 +830,8 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 					if (j >= shallowNodes.length || shallowNodes[j-1].r != shallowNodes[j].r) break;
 				}
 				if (insert){
-					insertionNodes.push({"xpath":shallowNodes[j-1].r, "forbidden":(allowEverything ? [] : setAttributes), "as":["!"], "an":[""]});		//for inserted nodes, don't care about specific API accessed
+					an = an.map(function(o){if (o.indexOf("\\[o\\]")==0 || o.indexOf("<")==0) return ""; else return o;});
+					insertionNodes.push({"xpath":shallowNodes[j-1].r, "forbidden":(allowEverything ? [] : setAttributes), "as":as, "an":an});		//for inserted nodes, don't care about specific API accessed
 					shallowNodes.splice(start, j - start);
 					j = start;
 				}
