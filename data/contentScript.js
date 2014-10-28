@@ -385,21 +385,21 @@ var getPatterns = function(constABS, agg){
 	return returnValue;
 }
 
-var learnPatterns = function(deepInsertionNodes){
+var learnPatterns = function(insertionNodes){
 	//Obtain real node handles first.
 	var i,j;
 	var abstractedList = [];		//[{r:resource: a:[{n:v}, {n:v}, ..]}, ...]
 	var aggregatedAttrNames = [];			//[{id:4}, {class:5}];
 	var aggregatedAttrN = [];		//auxillary structures to generate aggregatedAttrNames.
 	var aggregatedAttrF = [];
-	for (i = 0; i < deepInsertionNodes.length; i++){
-		var node = getElementByXpath(deepInsertionNodes[i].xpath.split("|")[0]);
+	for (i = 0; i < insertionNodes.length; i++){
+		var node = getElementByXpath(insertionNodes[i].xpath.split("|")[0]);
 		if (!!node && node.nodeType == 1) {
 			var a = node.attributes;
 			var attributeCandidates = {};
 			for (j = 0; j < a.length; j++){
 				var temp = a[j].name;
-				if (deepInsertionNodes[i].forbidden.indexOf(temp)==-1){
+				if (insertionNodes[i].forbidden.indexOf(temp)==-1){
 					if (temp == "class") {
 					//special treatment for class
 						var values = a[j].value.split(" ");
@@ -426,7 +426,7 @@ var learnPatterns = function(deepInsertionNodes){
 					}
 				}
 			}
-			abstractedList.push({r: deepInsertionNodes[i].xpath, n: node, a:attributeCandidates, f:deepInsertionNodes[i].forbidden, as:deepInsertionNodes[i].as, an:deepInsertionNodes[i].an});
+			abstractedList.push({r: insertionNodes[i].xpath, n: node, a:attributeCandidates, f:insertionNodes[i].forbidden, as:insertionNodes[i].as, an:insertionNodes[i].an});
 		}
 	}
 	//construct aggregatedAttrNames
@@ -500,9 +500,7 @@ var simplifyNodeInfo = function(nodeInfo){
 		nodeInfo = nodeInfo.substr(3);
 	}
 	if (nodeInfo.indexOf("<") == 0){
-		nodeInfo = nodeInfo.replace(/\d+/g, "\\d*");
-		nodeInfo = nodeInfo.replace(/\?/g, "\\?");
-		nodeInfo = nodeInfo.replace(/\./g, "\\.");
+		nodeInfo = nodeInfo.replace(/\d+/g, "\\d*").replace(/\?/g, "\\?").replace(/\./g, "\\.").replace(/\+/g, "\\+").replace(/\*/g, "\\*");
 		var startingGT = nodeInfo.indexOf(">");
 		while (startingGT != -1){
 			if (nodeInfo.indexOf("'") < nodeInfo.indexOf('"')){
@@ -782,7 +780,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				}
 			}
 			//remainingAccesses are divided into two types: shallowNodes and deepNodes.  Shallow nodes are parents of deep nodes.
-			var deepInsertionNodes = [];
+			var insertionNodes = [];
 			var otherDeepNodes = [];
 			j = 0;
 			while (j < deepNodes.length){
@@ -804,7 +802,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 					if (j >= deepNodes.length || deepNodes[j-1].r != deepNodes[j].r) break;
 				}
 				if (insert){
-					deepInsertionNodes.push({"xpath":deepNodes[j-1].r, "forbidden":(allowEverything ? [] : setAttributes), "as":["!"], "an":[""]});		//for inserted nodes, don't care about specific API accessed
+					insertionNodes.push({"xpath":deepNodes[j-1].r, "forbidden":(allowEverything ? [] : setAttributes), "as":["!"], "an":[""]});		//for inserted nodes, don't care about specific API accessed
 					deepNodes.splice(start, j - start);
 					j = start;
 				}
@@ -812,9 +810,33 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 					otherDeepNodes.push({"xpath":deepNodes[j-1].r, "forbidden":(allowEverything ? [] : setAttributes), "as":as, "an":an});
 				}
 			}
-			//deepInsertionNodes contains deep nodes that have accessed insertion APIs.
+			while (j < shallowNodes.length){
+				var curNode = shallowNodes[j];
+				var insert = false;
+				var setAttributes = [];
+				var start = j;
+				var as = [];
+				var an = [];
+				//see how many after this is talking about the same node
+				while (true){
+					if (!insert) insert = (shallowNodes[j].a == "InsertBefore" || shallowNodes[j].a == "AppendChild" || shallowNodes[j].a == "document.write" || shallowNodes[j].a == "ReplaceChild" || shallowNodes[j].a == "SetInnerHTML");
+					if (shallowNodes[j].a == "SetAttribute") setAttributes.push(shallowNodes[j].n);
+					else if (shallowNodes[j].a.indexOf("Set") == 0) setAttributes.push(shallowNodes[j].a.substr(3).toLowerCase());
+					//(setattributes could have duplicate, but max of two dup)
+					as.push(shallowNodes[j].a);
+					an.push(shallowNodes[j].n);
+					j++;
+					if (j >= shallowNodes.length || shallowNodes[j-1].r != shallowNodes[j].r) break;
+				}
+				if (insert){
+					insertionNodes.push({"xpath":shallowNodes[j-1].r, "forbidden":(allowEverything ? [] : setAttributes), "as":["!"], "an":[""]});		//for inserted nodes, don't care about specific API accessed
+					shallowNodes.splice(start, j - start);
+					j = start;
+				}
+			}
+			//insertionNodes contains deep nodes that have accessed insertion APIs.
 			//Now, for these nodes, discover their pattern --- e.g. //DIV[@id="ad-.*"].  If impossible, list themselves
-			retVal.adWidget = learnPatterns(deepInsertionNodes);
+			retVal.adWidget = learnPatterns(insertionNodes);
 			retVal.otherDeeps = learnPatterns(otherDeepNodes);
 			//get how many entries the adWidget and otherDeeps patterns matched:
 			var excludeAccessesMatched = function(ps){
@@ -889,7 +911,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 					}
 				}
 			}
-			getRootPolicies(deepInsertionNodes, retVal.adWidget);
+			getRootPolicies(insertionNodes, retVal.adWidget);
 			getRootPolicies(otherDeepNodes, retVal.otherDeeps);
 			//get rid of marked shallowNodes:
 			for (var j = 0; j < shallowNodes.length; j++){

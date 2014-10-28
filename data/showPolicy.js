@@ -40,7 +40,7 @@ function receiveMessage(event)
   }
   for (i = 0; i < policy.base.length; i++){
 	var toAppend = document.createElement("li");
-	toAppend.innerHTML = "<span class='output'>" + escapeHTML(policy.base[i].p) + "</span><span class='matchCount' style='color:blue'> matches " + policy.base[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><button class='move2Gen'>move2Gen</button><input class='check' type='checkbox' checked>";
+	toAppend.innerHTML = "<span class='output'>" + escapeHTML(policy.base[i].p) + "</span><span class='matchCount' style='color:blue'> matches " + policy.base[i].n + " entries. </span><button class='edit'>edit</button><button class='delete'>delete</button><button class='move2Gen'>move2Gen</button><button class='move2Others'>move2Others</button><input class='check' type='checkbox' checked>";
 	$(toAppend).addClass("policyEntry");
 	document.getElementById("base").appendChild(toAppend);
   }
@@ -184,6 +184,11 @@ $(document).on("click", "button.edit", null, function(){
 
 $(document).on("click", "button.move2Base", null, function(){
 	$(this).parent().appendTo($("#base"));
+	$(this).remove();
+});
+
+$(document).on("click", "button.move2Others", null, function(){
+	$(this).parent().appendTo($("#otherDeeps"));
 	$(this).remove();
 });
 
