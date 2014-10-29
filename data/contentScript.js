@@ -23,7 +23,10 @@ var getElementsByXpath = function (path) {
 };
 
 var getElementsByCSS = function (selector) {
-    return document.querySelectorAll(selector);
+    try {
+		return document.querySelectorAll(selector);
+	}
+	catch(ex){alert(selector);}
 };
 
 var consoleLog = function(msg){
@@ -133,7 +136,10 @@ var getSoloPattern = function (abs){
 		attrValues.push(na[i].value);
 		retVal.sp = constructSP();
 		retVal.p = constructP();
-		if (document.querySelectorAll(retVal.sp).length == 1) return retVal;
+		try {
+			if (document.querySelectorAll(retVal.sp).length == 1) return retVal;
+		}
+		catch(ex){alert(retVal.sp);}
 	}
 	//no selector can be unique, set sp to empty and p to xpath
 	retVal.p = retVal.xp;
@@ -253,7 +259,9 @@ var getPatterns = function(constABS, agg){
 			if (headPattern == "" && tailPattern == ""){
 				//test if simply having this attribute can be a unique identifier.
 				var pattern = tagName + "[" + attrName + "]";
-				var matchRate = getElementsByCSS(pattern).length / agg[i].f;
+				var nodes = getElementsByCSS(pattern);
+				if (!nodes) continue;
+				var matchRate = nodes.length / agg[i].f;
 				if (matchRate <= matchRateThreshold) {
 					patterns.push({p:pattern, n:agg[i].f, r:matchRate});
 				}
@@ -500,7 +508,7 @@ var simplifyNodeInfo = function(nodeInfo){
 		nodeInfo = nodeInfo.substr(3);
 	}
 	if (nodeInfo.indexOf("<") == 0){
-		nodeInfo = nodeInfo.replace(/\d+/g, "\\d*").replace(/\?/g, "\\?").replace(/\./g, "\\.").replace(/\+/g, "\\+").replace(/\*/g, "\\*");
+		nodeInfo = nodeInfo.replace(/\*/g, "\\*").replace(/\d+/g, "\\d*").replace(/\?/g, "\\?").replace(/\./g, "\\.").replace(/\+/g, "\\+");
 		var startingGT = nodeInfo.indexOf(">");
 		while (startingGT != -1){
 			if (nodeInfo.indexOf("'") < nodeInfo.indexOf('"')){
@@ -513,7 +521,7 @@ var simplifyNodeInfo = function(nodeInfo){
 		}
 		if (startingGT != -1) {
 			var openingTag = nodeInfo.substr(0, startingGT + 1);
-			if (openingTag.indexOf("<script" == 0) || openingTag.indexOf("<iframe") == 0 || openingTag.indexOf("<img") == 0) {
+			if (openingTag.indexOf("<script") == 0 || openingTag.indexOf("<iframe") == 0 || openingTag.indexOf("<img") == 0) {
 				var tagName;
 				if (openingTag.indexOf("<script") == 0) tagName = "script";
 				if (openingTag.indexOf("<iframe") == 0) tagName = "iframe";

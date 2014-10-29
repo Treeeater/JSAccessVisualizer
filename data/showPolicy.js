@@ -134,27 +134,30 @@ $(document).on("click", "span.clickable", null, function(){
 function constructCSSFromXPath(p){
 	var retVal = "";
 	if (p.indexOf("sub:") == 0) p = p.substr(4);
+	if (p.indexOf(">") > -1) p = p.substr(0, p.indexOf(">"));
 	if (p.indexOf("//") == 0){
 		retVal = p.substr(2, p.indexOf("[") - 2);
 		p = p.substr(p.indexOf("[")+1);
+		var classes = "";
 		while (p.length > 0 && p[0]!="]"){
 			p = p.substr(1);		//get rid of @
-			retVal += "[";
-			var tagName = p.substr(0, p.indexOf("="));
-			if (tagName == "class") {
+			var attrName = p.substr(0, p.indexOf("="));
+			p = p.substr(attrName.length + 2);		//get rid of ='
+			var attrValue = p.substr(0, p.indexOf("'"));
+			if (attrName == "class") {
 				//class names cannot have .* in them.  If forced to have, cannot visualize correctly.
-				retVal += "." + p.substr(retVal.length + 2)
+				classes += "." + attrValue;
 			}
 			else {
-				retVal += tagName;
-				p = p.substr(tagName.length + 2);		//get rid of ='
-				var value = p.substr(0, p.indexOf("'"));
-				if (value.substr(0,2) ==".*") {retVal += "$"; value = value.substr(2);}
-				if (value.substr(-2,2) == ".*") {retVal += "^"; value = value.substr(0, value.length - 2);}
-				retVal += "='" + value + "']"
-				p = p.substr(p.indexOf("'")+1);
+				retVal += "[";
+				retVal += attrName;
+				if (attrValue.substr(0,2) ==".*") {retVal += "$"; attrValue = attrValue.substr(2);}
+				if (attrValue.substr(-2,2) == ".*") {retVal += "^"; attrValue = attrValue.substr(0, attrValue.length - 2);}
+				retVal += "='" + attrValue + "']"
 			}
+			p = p.substr(p.indexOf("'")+1);
 		}
+		retVal += classes;
 	}
 	else if (p.indexOf("/HTML[1]") == 0){
 		p = p.substr(9);
