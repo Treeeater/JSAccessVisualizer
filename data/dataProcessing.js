@@ -161,6 +161,9 @@ function RecordsPerSite(url){
 			}
 			return false;
 		}
+		if (r.split("/").splice(-1,1)[0].indexOf("INPUT")==0){
+			if (a.indexOf("getvalue")!=-1) return true;
+		}
 		if (a.indexOf('get')==-1) return false;
 		//given the additional string, return if this is a get access
 		var ret = (a.indexOf('innerhtml') != -1) || (a.indexOf('outerhtml') != -1) || (a.indexOf('text') != -1);

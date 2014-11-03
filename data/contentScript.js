@@ -407,6 +407,7 @@ var learnPatterns = function(insertionNodes){
 			var attributeCandidates = {};
 			for (j = 0; j < a.length; j++){
 				var temp = a[j].name;
+				if (temp == "style") continue;		//don't use style as identifier.
 				if (insertionNodes[i].forbidden.indexOf(temp)==-1){
 					if (temp == "class") {
 					//special treatment for class
