@@ -87,14 +87,12 @@ self.port.on("checkViolations", function(){
 	self.port.emit("reportViolatingDomains",retVal);
 });
 
-self.port.on("inferModel", function(targetDomain){
-	td = targetDomain;
-	tld = document.domain.split(".");
-	if (tld.length > 2) tld = tld[tld.length - 2] + "." + tld[tld.length - 1];
-	else tld = tld.join(".");
+self.port.on("inferModel", function(msg){
+	td = msg.tpd;
+	tld = msg.hd;
 	//Load existing policies.
-	
-	inferModelFromRawViolatingRecords(document.checkPolicyToString(), targetDomain);
+	existingPolicies = msg.existingPoliciesLoaded;			//global var
+	inferModelFromRawViolatingRecords(document.checkPolicyToString(), td);
 });
 
 function processPolicies(){

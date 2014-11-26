@@ -476,9 +476,22 @@ String.prototype.chomp = function(){
 	return ret.toString();
 }
 
+function getRootDomain(url){
+	var domain = url;
+	if (url.indexOf('http')!=-1) domain = domain.substr(domain.indexOf('/')+2,domain.length);			//get rid of protocol if there's one.
+	else if (url.indexOf('//')==0) domain = domain.substr(2,domain.length);		//get rid of the starting // if there's one.
+	if (domain.indexOf('/')!=-1) domain = domain.substr(0,domain.indexOf('/'));					//get rid of paths if there's one.
+	if (domain.indexOf(':')!=-1) domain = domain.substr(0,domain.indexOf(':'));					//get rid of port if there's one.
+	var domainArray = domain.split('.');
+	if (domainArray.length < 2) return domain;			//error. Never return TLD.
+	domain = domainArray[domainArray.length-2] + '.' + domainArray[domainArray.length-1];
+	return domain;
+}
+
 function preprocess(data){
 	data = data.replace(/\r/g,'');					//get rid of file specific \r
 	var url = data.substr(5, data.indexOf('\n---')-4);
+	hostDomain = getRootDomain(url);
 	data = data.substr(data.indexOf('---')+4);		//get rid of the first url declaration.
 	var r = new RecordsPerSite(url);
 	domains = data.split("tpd: ");

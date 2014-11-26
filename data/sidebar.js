@@ -201,8 +201,14 @@ function calculatorUIClicked(event){
 	var domain = temp.substr(2);
 	console.log("Calculating policy for " + domain);
 	//load existing policies.
-	addon.port.emit("inferModel", domain);
+	addon.port.emit("loadExistingPolicies", {tpd:domain, hd:hostDomain});		//hostDomain obtained from dataProcessing.js:preprocess()
 }
+
+function existingPoliciesLoaded(msg){
+	addon.port.emit("inferModel", {tpd:msg.tpd, existingPoliciesLoaded:msg.existingPoliciesLoaded});
+}
+
+addon.port.on("existingPoliciesLoaded", existingPoliciesLoaded);
 
 function changeThreshold(){
 	addon.port.emit("changeThreshold","");
