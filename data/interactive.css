@@ -20,7 +20,7 @@ span.clicked{
 	background-color: hsla(191, 85%, 65%, 0.5);
 }
 
-.typeHeader{
+.hidden{
 	visibility:hidden;
 	display:none;
 }

@@ -200,6 +200,7 @@ function calculatorUIClicked(event){
 	var temp = event.target.parentNode.firstChild.nodeValue;
 	var domain = temp.substr(2);
 	console.log("Calculating policy for " + domain);
+	//load existing policies.
 	addon.port.emit("inferModel", domain);
 }
 

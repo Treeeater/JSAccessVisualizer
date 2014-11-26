@@ -7,39 +7,39 @@
 <body>
 <h2 align="center"><span>Host domain: </span><span id="hd"></span></h2>
 <h3 align="center"><span>3P domain: </span><span id="tpd"></span></h3>
-<h4 align="center"><span>Violating entries #: </span><span id="vn"></span></h3>
+<h4 align="center"><span>Matched entries #: </span><span id="mn"></span></h3>
 <h4 align="center"><span>Remaining violating entries #: </span><span id="rvn"></span></h3>
-<div class="typeHeader">Exisiting Policies:
+<div class="typeHeader hidden">Exisiting Policies:
+<ul id = "existing"></ul>
+</div>
+<div class="typeHeader hidden">Base:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
 <ul id = "base"></ul>
 </div>
-<div class="typeHeader">Base:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
-<ul id = "base"></ul>
-</div>
-<div class="typeHeader">Generic:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<div class="typeHeader hidden">Generic:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
 <ul id = "generic"></ul>
 </div>
-<div class="typeHeader">AdWidget:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<div class="typeHeader hidden">AdWidget:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
 <ul id = "adWidget"></ul>
 </div>
-<div class="typeHeader">OtherDeeps:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<div class="typeHeader hidden">OtherDeeps:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
 <ul id = "otherDeeps"></ul>
 </div>
-<div class="typeHeader">Tag:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<div class="typeHeader hidden">Tag:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
 <ul id = "tag"></ul>
 </div>
-<div class="typeHeader">Root:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<div class="typeHeader hidden">Root:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
 <ul id = "root"></ul>
 </div>
-<div class="typeHeader">Parent:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<div class="typeHeader hidden">Parent:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
 <ul id = "parent"></ul>
 </div>
-<div class="typeHeader">Unclassified:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<div class="typeHeader hidden">Unclassified:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
 <ul id = "unclassified"></ul>
 </div>
 <div align="center">
 <input onclick = "checkAll(event)" type="checkbox" checked>Check all!</input>
-<button id="outputButton" onclick="outputPolicy()">Output Policy</button>
+<button id="nextButton" onclick="next()">Next</button>
 </div>
-<script src='showPolicy.js'></script>
+<script src='interactive.js'></script>
 </body>
 </html>

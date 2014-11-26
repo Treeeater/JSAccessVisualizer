@@ -383,16 +383,15 @@ function RecordsPerSite(url){
 		return retVal;
 	};
 }
-	
-function postMsg(msg){
-	policyWindowHandler.postMessage(msg, "*");
-}
 
 window.addEventListener("message", handleMessage, false);
 
 function handleMessage(event){
 	var d = event.data;
-	if (d.type.indexOf('output')==0){
+	if (d.type == "fromInteractive"){
+		addon.port.emit("fromInteractive", d);
+	}
+	else if (d.type.indexOf('output')==0){
 		if (d.hd == "" || d.tpd == "") {
 			alert("cannot retrieve host domain or third party domain, error!");
 			return;
@@ -421,12 +420,30 @@ function handleMessage(event){
 		addon.port.emit("RemoveCSSDisplay", {XPath: d.XPath, CSSSelector: d.selector});
 	}
 }
+	
+function postMsg(msg){
+	policyWindowHandler.postMessage(msg, "*");
+}
 
 function showPolicyToUser(msg){
-	if (policyWindowHandler != undefined) policyWindowHandler.close();
+	if (typeof policyWindowHandler != "undefined") policyWindowHandler.close();
 	policyWindowHandler = window.open("showPolicy.html", "policywindow", "height=800, width=1200, left=600, top=100, scrollbars=yes");
 	var message = msg;
 	policyWindowHandler.addEventListener('load', postMsg.bind(this, message), true);
+}
+
+addon.port.on("openInteractive", openInteractive);
+addon.port.on("postMsgToInteractive", postMsgToInteractive);
+
+function postMsgToInteractive(msg){
+	interactiveWindowHandler.postMessage(msg, "*");
+}
+
+function openInteractive(msg){
+	if (typeof interactiveWindowHandler != "undefined") interactiveWindowHandler.close();
+	interactiveWindowHandler = window.open("interactive.html", "interactiveWindow", "height=800, width=1200, left=600, top=100, scrollbars=yes");
+	var message = msg;
+	interactiveWindowHandler.addEventListener('load', postMsgToInteractive.bind(this, message), true);
 }
 
 function displayViolatingDomains(msg){
@@ -439,6 +456,7 @@ function displayViolatingDomains(msg){
 			images[i].src="./icon/green00000.png";
 		}
 		else {
+			images[i].parentNode.style = "visibility:hidden; display:none;";
 			images[i].src="./icon/yellow0000.png";
 		}
 	}

@@ -69,7 +69,6 @@ self.port.on("checkViolations", function(){
 	var violationString = document.checkPolicyToString();
 	var retVal = {v:[], m:[]};
 	var rawData = violationString.replace(/\r/g,'');					//get rid of file specific \r
-	var url = rawData.substr(5, rawData.indexOf('\n---')-4);
 	rawData = rawData.substr(rawData.indexOf('---'));		//get rid of the first url declaration.
 	rawData = rawData.substr(0, rawData.length-5);
 	domains = rawData.split("---\ntpd: ");
@@ -89,12 +88,20 @@ self.port.on("checkViolations", function(){
 });
 
 self.port.on("inferModel", function(targetDomain){
-	var p = inferModelFromRawViolatingRecords(document.checkPolicyToString(), targetDomain);
-	var tld = document.domain.split(".");
+	td = targetDomain;
+	tld = document.domain.split(".");
 	if (tld.length > 2) tld = tld[tld.length - 2] + "." + tld[tld.length - 1];
 	else tld = tld.join(".");
-	self.port.emit("returningPolicy", {policy:p, domain:tld, thirdPDomain:targetDomain});
+	//Load existing policies.
+	
+	inferModelFromRawViolatingRecords(document.checkPolicyToString(), targetDomain);
 });
+
+function processPolicies(){
+	//done with interactive phase and policy candidate generation, present them to the admin.
+	if (policies.base.length == 0 && policies.tag.length == 0 && policies.root.length == 0 && policies.sub.length == 0 && policies.adWidget.length == 0 && policies.otherDeeps.length == 0 && policies.parent.length == 0 && policies.unclassified.length == 0) return;
+	self.port.emit("returningPolicy", {policy:policies, domain:tld, thirdPDomain:td});
+}
 
 var getSoloPattern = function (abs){
 	var node = abs.n;
@@ -583,24 +590,23 @@ var simplifyNodeInfo = function(nodeInfo){
 	return policy;
 }
 
-function postMsg(msg){
-	interactiveWindowHandler.postMessage(msg, "*");
-}
-
-function openInteractive(msg){
-	if (interactiveWindowHandler != undefined) interactiveWindowHandler.close();
-	interactiveWindowHandler = window.open("interactive.html", "interactiveWindow", "height=800, width=1200, left=600, top=100, scrollbars=yes");
-	var message = msg;
-	interactiveWindowHandler.addEventListener('load', postMsg.bind(this, message), true);
-}
+self.port.on("fromInteractive",function(d){
+	switch(d.phase){
+		case "base":
+			policies = d.p;
+			afterBasePolicy();
+			break;
+		default:
+			break;
+	}
+});
 
 var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 	//rawData is the raw data obtained from document.checkPolicyToString
 	//Parse data to records
-	var policies = {base:[], tag:[], root:[], sub:[], adWidget:[], otherDeeps:[], parent:[], unclassified:[], totalViolatingEntries:0};
-	if (targetDomain == "" || typeof targetDomain == "undefined") return policies;
+	policies = {base:[], tag:[], root:[], sub:[], adWidget:[], otherDeeps:[], parent:[], unclassified:[], totalViolatingEntries:0, totalViolatingNonBaseEntries:0};
+	if (targetDomain == "" || typeof targetDomain == "undefined") processPolicies();
 	rawData = rawData.replace(/\r/g,'');					//get rid of file specific \r
-	var url = rawData.substr(5, rawData.indexOf('\n---')-4);
 	rawData = rawData.substr(rawData.indexOf('---'));		//get rid of the first url declaration.
 	rawData = rawData.substr(0, rawData.length-5);
 	domains = rawData.split("---\ntpd: ");
@@ -615,12 +621,12 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 	}
 	if (i == domains.length) {
 		alert("cannot find this domain in violation report, exiting...");
-		return policies;
+		processPolicies();
 	}
 	curData = curData.substr(curData.indexOf('\n')+1);
 	//Ignore matched cases
-	var matchedEntries = 0;
-	var matchedPolicies = 0;
+	matchedEntries = 0;
+	matchedPolicies = 0;
 	while (curData.length > 2 && curData.substr(0, 2) == "M:"){
 		matchedPolicies++;
 		curData = curData.substr(curData.indexOf("<-with->") + 9);
@@ -629,12 +635,12 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 		matchedEntries += parseInt(matchingTimes);
 		curData = curData.substr(curData.indexOf("\n") + 1);
 	}
-	var dv = [];
-	var tagPolicyValues = {};
+	dv = [];
+	tagPolicyValues = {};
 	if (curData.length <= 4) {
 		//all reported accesses are matched with existing policy.
 		alert("All existing accesses (" + matchedEntries + ") are matched with current policy, exiting...");
-		return policies;
+		processPolicies();
 	}
 	//Collect unmatched cases
 	var policyBase = {};
@@ -666,6 +672,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 			var temp = resource.split("|")[0];
 			if (temp != "/HTML[1]" && temp != "/HTML[1]/BODY[1]" && temp != "/HTML[1]/HEAD[1]")
 			{
+				policies.totalViolatingNonBaseEntries++;
 				//Classify accesses by tagnames
 				var tagName = temp.split("/");
 				tagName = tagName[tagName.length - 1];
@@ -726,10 +733,16 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 	for (var policy in policyBase){
 		policies.base.push({p:policy, n: policyBase[policy]});
 	}
+	self.port.emit("openInteractive", {type:"base", p:policies, hd:document.domain, tpd:targetDomain, matches:matchedEntries});
+	//return afterBasePolicy();
+}
+
+var afterBasePolicy = function(){
 	//Done suggesting base policies, ask the admin to approve the base policies, and if this covers all, stop.
-	if (policies.totalViolatingEntries == 0) {
-		alert("All existing accesses (" + matchedEntries + ") are matched with current policy, exiting...");
-		return policies;
+	if (policies.totalViolatingNonBaseEntries == 0) {
+		alert("All existing accesses are covered by current policy candidates, exiting...");
+		processPolicies();
+		return;
 	}
 	//The augmented base policy can't cover all violations, continue to suggest tag policies.
 	//Handle possible scenarios like //SCRIPT>GetSrc first.
@@ -1000,7 +1013,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 	}
 	policies = combinePolicies(computePoliciesForEntries(dv, false), policies);
 	policies = combinePolicies(computePoliciesForEntries(subAccesses, true), policies);
-	return policies;
+	processPolicies();
 }
 
 self.port.on("scroll", function(msg){
