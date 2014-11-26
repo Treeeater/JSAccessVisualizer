@@ -45,9 +45,9 @@ function obtainNow(){
 	resetContent();
 }
 
-function inferModelUI(){
+function checkViolations(){
 	//infer for all domains.
-	addon.port.emit("inferModel", "");
+	addon.port.emit("checkViolations", "");
 }
 
 function generalize(){
@@ -427,6 +427,21 @@ function showPolicyToUser(msg){
 	policyWindowHandler = window.open("showPolicy.html", "policywindow", "height=800, width=1200, left=600, top=100, scrollbars=yes");
 	var message = msg;
 	policyWindowHandler.addEventListener('load', postMsg.bind(this, message), true);
+}
+
+function displayViolatingDomains(msg){
+	var images = document.getElementsByTagName("img");
+	for (var i = 0; i < images.length; i++){
+		if (msg.v.indexOf(images[i].parentNode.firstChild.nodeValue.substr(2)) >= 0){
+			images[i].src="./icon/red0000000.png";
+		}
+		else if (msg.m.indexOf(images[i].parentNode.firstChild.nodeValue.substr(2)) >= 0){
+			images[i].src="./icon/green00000.png";
+		}
+		else {
+			images[i].src="./icon/yellow0000.png";
+		}
+	}
 }
 
 function Record(t, r, a, rw){

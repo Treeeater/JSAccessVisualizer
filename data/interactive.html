@@ -1,0 +1,45 @@
+<html>
+<head>
+	<title>Interactive Policy Generator</title>
+	<link rel="stylesheet" type="text/css" href="interactive.css">
+	<script type="text/javascript" src="jquery-2.1.1.min.js"></script>
+</head>
+<body>
+<h2 align="center"><span>Host domain: </span><span id="hd"></span></h2>
+<h3 align="center"><span>3P domain: </span><span id="tpd"></span></h3>
+<h4 align="center"><span>Violating entries #: </span><span id="vn"></span></h3>
+<h4 align="center"><span>Remaining violating entries #: </span><span id="rvn"></span></h3>
+<div class="typeHeader">Exisiting Policies:
+<ul id = "base"></ul>
+</div>
+<div class="typeHeader">Base:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<ul id = "base"></ul>
+</div>
+<div class="typeHeader">Generic:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<ul id = "generic"></ul>
+</div>
+<div class="typeHeader">AdWidget:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<ul id = "adWidget"></ul>
+</div>
+<div class="typeHeader">OtherDeeps:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<ul id = "otherDeeps"></ul>
+</div>
+<div class="typeHeader">Tag:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<ul id = "tag"></ul>
+</div>
+<div class="typeHeader">Root:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<ul id = "root"></ul>
+</div>
+<div class="typeHeader">Parent:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<ul id = "parent"></ul>
+</div>
+<div class="typeHeader">Unclassified:<input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<ul id = "unclassified"></ul>
+</div>
+<div align="center">
+<input onclick = "checkAll(event)" type="checkbox" checked>Check all!</input>
+<button id="outputButton" onclick="outputPolicy()">Output Policy</button>
+</div>
+<script src='showPolicy.js'></script>
+</body>
+</html>

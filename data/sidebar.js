@@ -56,7 +56,8 @@ function insertCategories(ele, domain){
 function expandDomainList(ele){
 	var eleInnerHTML = ele.innerHTML;
 	var domain = ele.innerHTML.substr(2, ele.innerHTML.length - calculatorImageSrc.length - 1);
-	$(ele).html("&#9660; " + domain + calculatorImageSrc);
+	var remaining = ele.innerHTML.substr(2, ele.innerHTML.length - 1);
+	$(ele).html("&#9660; " + remaining);
 	insertCategories(ele, domain);
 }
 
@@ -264,6 +265,8 @@ addon.port.emit("updateSBCBStatus","");
 addon.port.on("clearSBContent", resetContent.bind(this, true));
 
 addon.port.on("returningPolicy", showPolicyToUser);
+
+addon.port.on("reportViolatingDomains", displayViolatingDomains);
 
 addon.port.on("nothingToDisplayAll", function(){
 	//from the content scripts, we already alerted the user, for now we don't do anything here.

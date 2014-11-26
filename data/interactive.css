@@ -1,0 +1,26 @@
+.check {
+	display: inline;
+	margin-left: 30px;
+	margin-top: 3px;
+}
+
+li.policyEntry{
+	font-size: 20px;
+}
+
+div.typeHeader{
+	font-size: 30px;
+}
+
+span.clickable{
+	cursor:default;
+}
+
+span.clicked{
+	background-color: hsla(191, 85%, 65%, 0.5);
+}
+
+.typeHeader{
+	visibility:hidden;
+	display:none;
+}
