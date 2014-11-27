@@ -432,18 +432,21 @@ function showPolicyToUser(msg){
 	policyWindowHandler.addEventListener('load', postMsg.bind(this, message), true);
 }
 
-addon.port.on("openInteractive", openInteractive);
-addon.port.on("postMsgToInteractive", postMsgToInteractive);
+addon.port.on("postToInteractive", postToInteractive);
 
 function postMsgToInteractive(msg){
 	interactiveWindowHandler.postMessage(msg, "*");
 }
 
-function openInteractive(msg){
-	if (typeof interactiveWindowHandler != "undefined") interactiveWindowHandler.close();
-	interactiveWindowHandler = window.open("interactive.html", "interactiveWindow", "height=800, width=1200, left=600, top=100, scrollbars=yes");
-	var message = msg;
-	interactiveWindowHandler.addEventListener('load', postMsgToInteractive.bind(this, message), true);
+function postToInteractive(msg){
+	if (typeof interactiveWindowHandler == "undefined") {
+		interactiveWindowHandler = window.open("interactive.html", "interactiveWindow", "height=800, width=1200, left=600, top=100, scrollbars=yes");
+		var message = msg;
+		interactiveWindowHandler.addEventListener('load', postMsgToInteractive.bind(this, message), true);
+	}
+	else {
+		postMsgToInteractive(msg);
+	}
 }
 
 function displayViolatingDomains(msg){

@@ -83,7 +83,6 @@ self.port.on("checkViolations", function(){
 		if (curData.indexOf("_r: ")>-1) retVal.v.push(domain);
 		else retVal.m.push(domain);
 	}
-	console.log(retVal);
 	self.port.emit("reportViolatingDomains",retVal);
 });
 
@@ -602,8 +601,8 @@ self.port.on("fromInteractive",function(d){
 var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 	//rawData is the raw data obtained from document.checkPolicyToString
 	//Parse data to records
-	policies = {base:[], tag:[], root:[], sub:[], adWidget:[], otherDeeps:[], parent:[], unclassified:[], totalViolatingEntries:0, totalViolatingNonBaseEntries:0};
-	if (targetDomain == "" || typeof targetDomain == "undefined") processPolicies();
+	policies = {base:[], tag:[], root:[], sub:[], adWidget:[], otherDeeps:[], parent:[], unclassified:[], totalViolatingEntries:0};
+	if (!targetDomain) processPolicies();
 	rawData = rawData.replace(/\r/g,'');					//get rid of file specific \r
 	rawData = rawData.substr(rawData.indexOf('---'));		//get rid of the first url declaration.
 	rawData = rawData.substr(0, rawData.length-5);
@@ -633,12 +632,13 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 		matchedEntries += parseInt(matchingTimes);
 		curData = curData.substr(curData.indexOf("\n") + 1);
 	}
-	dv = [];
+	dv = [];			//stores all violating records (dynamically updated if admins accept new policy candidates).
 	tagPolicyValues = {};
 	if (curData.length <= 4) {
 		//all reported accesses are matched with existing policy.
 		alert("All existing accesses (" + matchedEntries + ") are matched with current policy, exiting...");
 		processPolicies();
+		return;
 	}
 	//Collect unmatched cases
 	var policyBase = {};
@@ -670,7 +670,6 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 			var temp = resource.split("|")[0];
 			if (temp != "/HTML[1]" && temp != "/HTML[1]/BODY[1]" && temp != "/HTML[1]/HEAD[1]")
 			{
-				policies.totalViolatingNonBaseEntries++;
 				//Classify accesses by tagnames
 				var tagName = temp.split("/");
 				tagName = tagName[tagName.length - 1];
@@ -731,17 +730,31 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 	for (var policy in policyBase){
 		policies.base.push({p:policy, n: policyBase[policy]});
 	}
-	self.port.emit("openInteractive", {type:"base", p:policies, hd:document.domain, tpd:targetDomain, matches:matchedEntries});
-	//return afterBasePolicy();
+	if (policies.base.length > 0){
+		self.port.emit("postToInteractive", {type:"base", p:policies, hd:tld, tpd:td, matches:matchedEntries});
+	}
+	else {
+		afterBasePolicy();
+	}
 }
 
 var afterBasePolicy = function(){
 	//Done suggesting base policies, ask the admin to approve the base policies, and if this covers all, stop.
-	if (policies.totalViolatingNonBaseEntries == 0) {
+	if (dv.length == 0) {
 		alert("All existing accesses are covered by current policy candidates, exiting...");
 		processPolicies();
 		return;
 	}
+	//emit existing site-specific policies if there's any.
+	if (!!existingPolicies){
+		self.port.emit("postToInteractive", {type:"existing", p:policies, hd:tld, tpd:td, matches:matchedEntries, ep:existingPolicies});
+	}
+	else {
+		afterExistingPolicy();
+	}
+}
+
+var afterExistingPolicy = function(){
 	//The augmented base policy can't cover all violations, continue to suggest tag policies.
 	//Handle possible scenarios like //SCRIPT>GetSrc first.
 	var cache = {};
