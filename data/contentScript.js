@@ -593,6 +593,9 @@ self.port.on("fromInteractive",function(d){
 			policies = d.p;
 			afterBasePolicy();
 			break;
+		case "existing":
+			afterExistingPolicy();
+			break;
 		default:
 			break;
 	}
@@ -731,7 +734,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 		policies.base.push({p:policy, n: policyBase[policy]});
 	}
 	if (policies.base.length > 0){
-		self.port.emit("postToInteractive", {type:"base", p:policies, hd:tld, tpd:td, matches:matchedEntries});
+		self.port.emit("postToInteractive", {type:"base", p:policies, hd:tld, tpd:td, matches:matchedEntries, forceNewWindow:true});
 	}
 	else {
 		afterBasePolicy();

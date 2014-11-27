@@ -43,6 +43,7 @@ function receiveMessage(event){
 	document.getElementById("rvn").innerHTML = policy.totalViolatingEntries;
 	switch (data.type){
 		case "base":
+			console.log("base UI phase");
 			for (i = 0; i < policy.base.length; i++){
 				policyID++;
 				eleIDToPolicyMap[policyID.toString()] = policy.base[i].p;
@@ -52,12 +53,32 @@ function receiveMessage(event){
 				document.getElementById("base").appendChild(toAppend);
 			}
 			if (policy.base.length > 0) {
-				$("#base").parent().toggleClass("gray");
+				$("#base").parent().removeClass("gray");
+				$("#base").parent().children("span.categoryTitle").addClass("blue");
 				$("#base").parent().children("ul").toggleClass("hidden");
 			}
 			break;
 		case "existing":
+			console.log("existing policy UI phase");
 			var ep = data.ep;
+			ep = ep.split("\n");
+			for (var i = 0; i < ep.length; i++){
+				if (ep[i] == "") continue;
+				var toAppend = document.createElement("li");
+				toAppend.innerHTML = "<span>" + escapeHTML(ep[i]) + "</span>";
+				$(toAppend).addClass("policyEntry");
+				document.getElementById("existing").appendChild(toAppend);
+			}
+			if (ep.length > 0) {
+				$("#existing").parent().removeClass("gray");
+				$("#existing").parent().children("ul").removeClass("hidden");
+			}
+			if ($("#base").parent().children("span.categoryTitle").hasClass("blue")) {
+				$("#base").parent().children("span.categoryTitle").removeClass("blue");
+				$("#base").parent().children("span.categoryTitle").addClass("green");
+				$("#base").parent().children("ul").addClass("hidden");
+			}
+			next();			//call next right away, no need to wait here.
 			break;
 		default:
 			break;
@@ -76,11 +97,18 @@ function next(){
 				policy.base.push({p:$(this).text(), n:"?"});
 			});
 			sendMessage(phase);
-			window.close();
+			break;
+		case "existing":
+			//no policy could possibly change here, send message right away.
+			sendMessage(phase);
 			break;
 		default:
 			break;
 	}
 }
+
+$("span.categoryTitle").on("click", function(){
+	$(this).parent().children("ul").toggleClass("hidden");
+});
 
 window.addEventListener("message", receiveMessage, false);
