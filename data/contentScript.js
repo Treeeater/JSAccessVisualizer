@@ -596,6 +596,10 @@ self.port.on("fromInteractive",function(d){
 		case "existing":
 			afterExistingPolicy();
 			break;
+		case "tag":
+			policies = d.p;
+			afterTagPolicy();
+			break;
 		default:
 			break;
 	}
@@ -677,6 +681,9 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				var tagName = temp.split("/");
 				tagName = tagName[tagName.length - 1];
 				tagName = tagName.substr(0, tagName.indexOf('['));
+				var key = "//" + tagName + ">" + additional + (nodeInfo != "" ? ":" + nodeInfo : "");
+				if (!tagPolicyValues[key]) tagPolicyValues[key] = 1;
+				else tagPolicyValues[key]++;
 				//If the tagName is #text, change the resource to its parent, and add text to additional
 				if (tagName == "#text") {
 					temp = temp.split("/");
@@ -691,9 +698,6 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 					if (!!temp2) resource = temp + "|" + temp2;
 					additional = "#text" + additional;
 				}
-				var key = "//" + tagName + ">" + additional + (nodeInfo != "" ? ":" + nodeInfo : "");
-				if (!tagPolicyValues[key]) tagPolicyValues[key] = 1;
-				else tagPolicyValues[key]++;
 				if (textPushed.indexOf(resource + additional + nodeInfo) == -1){
 					//make sure we don't push duplicates. Although the trace should not contain duplicates, we have shortened the records to text nodes, leaving only its parent in the resource, which might create duplicates.
 					dv.push({r:resource, a:additional, n:nodeInfo, t:tagName, shouldDelete:false});		//r = resource, a = apiname, n = argvalue, shouldDelete is a helper for getting rid of root-matching records.
@@ -734,6 +738,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 		policies.base.push({p:policy, n: policyBase[policy]});
 	}
 	if (policies.base.length > 0){
+		//Done calculating base policy candidates, ask the admin to approve the base policies, and if this covers all, stop.
 		self.port.emit("postToInteractive", {type:"base", p:policies, hd:tld, tpd:td, matches:matchedEntries, forceNewWindow:true});
 	}
 	else {
@@ -742,7 +747,8 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 }
 
 var afterBasePolicy = function(){
-	//Done suggesting base policies, ask the admin to approve the base policies, and if this covers all, stop.
+	//base policy candidates were approved/disapproved, now move onto site-specific policies.
+	//dv stores all ss policies.
 	if (dv.length == 0) {
 		alert("All existing accesses are covered by current policy candidates, exiting...");
 		processPolicies();
@@ -770,16 +776,28 @@ var afterExistingPolicy = function(){
 				else cache[tagName] = document.getElementsByTagName(tagName).length;
 			}
 			if (tagPolicyValues[k] >= cache[tagName]/3) {
-				policies.tag.push({p:k, n:tagPolicyValues[k]});
-				//Erase the handled accesses from dataDomain.violatingEntries.
-				//it's ok to write loop here as we do not expect this to happen many times
-				for (j = 0; j < dv.length; j++){
-					var e = dv[j];
-					if (k == "//" + e.t + ">" + e.a + (e.n != "" ? ":" + e.n : "")) {
-						dv.splice(j, 1);
-						j--;
-					}
-				}
+				policies.tag.push({p:k, n:tagPolicyValues[k]/cache[tagName]});
+			}
+		}
+	}
+	if (policies.tag.length > 0){
+		self.port.emit("postToInteractive", {type:"tag", p:policies, hd:tld, tpd:td, matches:matchedEntries});
+	}
+	else {
+		afterTagPolicy();
+	}
+}
+
+var afterTagPolicy = function(){
+	for (var i in policies.tag) {
+		var k = policies.tag[i].p;
+		//Erase the handled accesses from dataDomain.violatingEntries.
+		//it's ok to write loop here as we do not expect this to happen many times
+		for (j = 0; j < dv.length; j++){
+			var e = dv[j];
+			if (k == "//" + e.t + ">" + (e.a.substr(0,5) == "#text" ? e.a.substr(5) : e.a) + (e.n != "" ? ":" + e.n : "")) {
+				dv.splice(j, 1);
+				j--;
 			}
 		}
 	}

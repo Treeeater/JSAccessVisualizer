@@ -31,7 +31,7 @@ function receiveMessage(event)
 	for (i = 0; i < policy[ptype].length; i++) {
 		var p = policy[ptype][i].p.split(">")[0];
 		var a = policy[ptype][i].p.split(">")[1];
-		if (!!a && a.indexOf("#text")==0) {
+		if (!!a && a.indexOf("#text")==0 && ptype != "tag") {
 			p = p + "/#text[*]";
 			a = a.substr(5);
 			policy[ptype][i].p = p + ">" + a;

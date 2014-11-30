@@ -205,7 +205,7 @@ function calculatorUIClicked(event){
 }
 
 function existingPoliciesLoaded(msg){
-	addon.port.emit("inferModel", {tpd:msg.tpd, existingPoliciesLoaded:msg.existingPoliciesLoaded});
+	addon.port.emit("inferModel", {tpd:msg.tpd, hd:msg.hd, existingPoliciesLoaded:msg.existingPoliciesLoaded});
 }
 
 addon.port.on("existingPoliciesLoaded", existingPoliciesLoaded);
