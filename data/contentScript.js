@@ -801,15 +801,31 @@ var afterTagPolicy = function(){
 			}
 		}
 	}
+	if (dv.length == 0) {
+		alert("All existing accesses are covered by current policy candidates, exiting...");
+		processPolicies();
+		return;
+	}
 	var subAccesses = [];
 	//Make sure all nodes here in violatingEntries are still live, if they are not, get their parents until they're live
+	//Also make sure the nodes have at least one non-style attribute
+	var noAvailableAttrAsCandidate = function(node){
+		//returns true if node has no meaningful attribute to form a good selector
+		if (!node || !node.attributes) return true;
+		for (var i = 0; i < node.attributes.length; i++){
+			if (node.attributes[i].name != "style") {
+				return false;
+			}
+		}
+		return true;
+	}
 	for (var k = 0; k < dv.length; k++){
 		var splited = dv[k].r.split('|');
 		var xpath = splited[0];
 		var node = getElementByXpath(xpath);
 		var level = 0;
-		while (!node && level < 100){
-			//node is dead, get its parent.
+		while ((!node || noAvailableAttrAsCandidate(node)) && level < 100){
+			//node is either dead or has no attribute, get its parent.
 			xpath = xpath.split('/');
 			if (xpath.length == 1) break;
 			xpath.splice(-1, 1);
