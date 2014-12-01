@@ -100,6 +100,16 @@ function processPolicies(){
 	self.port.emit("returningPolicy", {policy:policies, domain:tld, thirdPDomain:td});
 }
 
+var combinePolicies = function(p1, p2){
+	//combine two policies and return their combination.
+	var retVal = {base:[], tag:[], root:[], adWidget:[], otherDeeps:[], parent:[], unclassified:[], totalViolatingEntries:0};
+	for (var prop in retVal){
+		if (prop != "totalViolatingEntries") retVal[prop] = p1[prop].concat(p2[prop]);
+		else retVal[prop] = p1[prop] + p2[prop];
+	}
+	return retVal;
+}
+
 var getSoloPattern = function (abs){
 	var node = abs.n;
 	var resource = abs.r;
@@ -600,6 +610,9 @@ self.port.on("fromInteractive",function(d){
 			policies = d.p;
 			afterTagPolicy();
 			break;
+		case "insertionOtherDeeps":
+			policies = d.p;
+			afterInsertionDeepPolicy();
 		default:
 			break;
 	}
@@ -608,7 +621,7 @@ self.port.on("fromInteractive",function(d){
 var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 	//rawData is the raw data obtained from document.checkPolicyToString
 	//Parse data to records
-	policies = {base:[], tag:[], root:[], sub:[], adWidget:[], otherDeeps:[], parent:[], unclassified:[], totalViolatingEntries:0};
+	policies = {base:[], tag:[], root:[], adWidget:[], otherDeeps:[], parent:[], unclassified:[], totalViolatingEntries:0};
 	if (!targetDomain) processPolicies();
 	rawData = rawData.replace(/\r/g,'');					//get rid of file specific \r
 	rawData = rawData.substr(rawData.indexOf('---'));		//get rid of the first url declaration.
@@ -739,7 +752,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 	}
 	if (policies.base.length > 0){
 		//Done calculating base policy candidates, ask the admin to approve the base policies, and if this covers all, stop.
-		self.port.emit("postToInteractive", {type:"base", p:policies, hd:tld, tpd:td, matches:matchedEntries, forceNewWindow:true});
+		self.port.emit("postToInteractive", {type:"base", p:policies, hd:tld, tpd:td, matches:matchedEntries, forceNewWindow:true, tve:policies.totalViolatingEntries});
 	}
 	else {
 		afterBasePolicy();
@@ -756,7 +769,7 @@ var afterBasePolicy = function(){
 	}
 	//emit existing site-specific policies if there's any.
 	if (!!existingPolicies){
-		self.port.emit("postToInteractive", {type:"existing", p:policies, hd:tld, tpd:td, matches:matchedEntries, ep:existingPolicies});
+		self.port.emit("postToInteractive", {type:"existing", p:policies, hd:tld, tpd:td, matches:matchedEntries, ep:existingPolicies, tve:dv.length});
 	}
 	else {
 		afterExistingPolicy();
@@ -781,7 +794,7 @@ var afterExistingPolicy = function(){
 		}
 	}
 	if (policies.tag.length > 0){
-		self.port.emit("postToInteractive", {type:"tag", p:policies, hd:tld, tpd:td, matches:matchedEntries});
+		self.port.emit("postToInteractive", {type:"tag", p:policies, hd:tld, tpd:td, matches:matchedEntries, tve:dv.length});
 	}
 	else {
 		afterTagPolicy();
@@ -806,9 +819,13 @@ var afterTagPolicy = function(){
 		processPolicies();
 		return;
 	}
-	var subAccesses = [];
-	//Make sure all nodes here in violatingEntries are still live, if they are not, get their parents until they're live
-	//Also make sure the nodes have at least one non-style attribute
+	//Copy dv into a new temp array, preserving what's in dv for future use.
+	remainingAccesses = [];
+	for (var k = 0; k < dv.length; k++){
+		remainingAccesses.push(dv[k]);
+	}
+	//Make sure all nodes here are still live, if they are not, get their parents until they're live.
+	//Also make sure the nodes have at least one non-style attribute.
 	var noAvailableAttrAsCandidate = function(node){
 		//returns true if node has no meaningful attribute to form a good selector
 		if (!node || !node.attributes) return true;
@@ -819,8 +836,8 @@ var afterTagPolicy = function(){
 		}
 		return true;
 	}
-	for (var k = 0; k < dv.length; k++){
-		var splited = dv[k].r.split('|');
+	for (var k = 0; k < remainingAccesses.length; k++){
+		var splited = remainingAccesses[k].r.split('|');
 		var xpath = splited[0];
 		var node = getElementByXpath(xpath);
 		var level = 0;
@@ -840,227 +857,241 @@ var afterTagPolicy = function(){
 				selector = splited[1];
 				selector = selector.split('/');
 				selector.splice(-level, 1);
-				selector.join("/");
+				selector = selector.join("/");
 			}
 			if (selector != "") selector = '|' + selector;
-			dv[k].r = xpath + selector;
-			subAccesses.push(dv[k]);
+			remainingAccesses[k].r = xpath + selector;
+			remainingAccesses[k].sub = true;
 		}
-		dv.splice(k, 1);
-		k--;
+		else {
+			//this entry is dead/has no attribute, and 
+			remainingAccesses.splice(k,1);
+			k--;
+		}
 	}
-	var combinePolicies = function(p1, p2){
-		var retVal = {base:[], tag:[], root:[], sub:[], adWidget:[], otherDeeps:[], parent:[], unclassified:[], totalViolatingEntries:0};
-		for (var prop in retVal){
-			if (prop != "totalViolatingEntries") retVal[prop] = p1[prop].concat(p2[prop]);
-			else retVal[prop] = p1[prop] + p2[prop];
+	//Now, inappropriate deepnodes (those that ain't alive anymore, or don't have any attribute) are marked with .sub=true.
+	//Then, get all deepnodes, regardless of whether they are insertion accesses or not:
+	deepNodes = [];
+	shallowNodes = [];
+	while (remainingAccesses.length > 0){
+		//get deepmost node
+		var maxDepth = -1;
+		var maxIndex = 0;
+		for (j = 0; j < remainingAccesses.length; j++){
+			var curDepth = remainingAccesses[j].r.split('|')[0].split('/').length;
+			if (curDepth > maxDepth) {
+				maxDepth = curDepth;
+				maxIndex = j;
+			}
 		}
-		return retVal;
+		deepNodes.push(remainingAccesses.splice(maxIndex, 1)[0]);
+		var maxXPath = deepNodes[deepNodes.length-1].r.split('|')[0];
+		//eliminate its parent nodes.
+		for (j = 0; j < remainingAccesses.length; j++){
+			var curXPath = remainingAccesses[j].r.split('|')[0];
+			if (maxXPath != curXPath && maxXPath.indexOf(curXPath) == 0) {
+				//current access is a parent of other accesses.
+				shallowNodes.push(remainingAccesses.splice(j, 1)[0]);
+				j--;
+			}
+			else if (maxXPath == curXPath) {
+				//push other accesses of itself in deepNodes too.
+				deepNodes.push(remainingAccesses.splice(j, 1)[0]);
+				j--;
+			}
+		}
 	}
-	var computePoliciesForEntries = function(entries, allowEverything){
-		//make a deep copy of violatingEntries.
-		var retVal = {base:[], tag:[], root:[], sub:[], adWidget:[], otherDeeps:[], parent:[], unclassified:[], totalViolatingEntries:0};
-		var remainingAccesses = [];
-		for (var k = 0; k < entries.length; k++){
-			remainingAccesses.push(entries[k]);
+	delete remainingAccesses;
+	//Now, two collections of nodes are created: shallowNodes and deepNodes.  Shallow nodes are parents of deep nodes.
+	//Then, we try to get all insertionNodes and otherDeepNodes.
+	insertionNodes = [];
+	otherDeepNodes = [];
+	j = 0;
+	while (j < deepNodes.length){
+		var curNode = deepNodes[j];
+		var insert = false;
+		var setAttributes = [];
+		var start = j;
+		var as = [];
+		var an = [];
+		//see how many after this is talking about the same node
+		while (true){
+			if (!insert) insert = (deepNodes[j].a == "InsertBefore" || deepNodes[j].a == "AppendChild" || deepNodes[j].a == "document.write" || deepNodes[j].a == "ReplaceChild" || deepNodes[j].a == "SetInnerHTML");
+			if (deepNodes[j].a == "SetAttribute") setAttributes.push(deepNodes[j].n);
+			else if (deepNodes[j].a.indexOf("Set") == 0) setAttributes.push(deepNodes[j].a.substr(3).toLowerCase());
+			//(setattributes could have duplicate, but max of two dup)
+			as.push(deepNodes[j].a);
+			an.push(deepNodes[j].n);
+			j++;
+			if (j >= deepNodes.length || deepNodes[j-1].r != deepNodes[j].r) break;
 		}
-		//start with deepmost access, get an array of deepmost nodes (if one node xpath is another one's prefix, ignore this for now)
-		var deepNodes = [];
-		var shallowNodes = [];
-		while (remainingAccesses.length > 0){
-			//get deepmost node
-			var maxDepth = -1;
-			var maxIndex = 0;
-			for (j = 0; j < remainingAccesses.length; j++){
-				var curDepth = remainingAccesses[j].r.split('|')[0].split('/').length;
-				if (curDepth > maxDepth) {
-					maxDepth = curDepth;
-					maxIndex = j;
-				}
-			}
-			deepNodes.push(remainingAccesses.splice(maxIndex, 1)[0]);
-			var maxXPath = deepNodes[deepNodes.length-1].r.split('|')[0];
-			//eliminate its parent nodes.
-			for (j = 0; j < remainingAccesses.length; j++){
-				var curXPath = remainingAccesses[j].r.split('|')[0];
-				if (maxXPath != curXPath && maxXPath.indexOf(curXPath) == 0) {
-					//current access is a parent of other accesses.
-					shallowNodes.push(remainingAccesses.splice(j, 1)[0]);
-					j--;
-				}
-				else if (maxXPath == curXPath) {
-					//push other accesses of itself in deepNodes too.
-					deepNodes.push(remainingAccesses.splice(j, 1)[0]);
-					j--;
-				}
-			}
+		if (insert){
+			an = an.map(function(o){if (o.indexOf("\\[o\\]")==0 || o.indexOf("<")==0) return ""; else return o;});
+			insertionNodes.push({"xpath":deepNodes[j-1].r, "forbidden":(deepNodes[j-1].sub ? [] : setAttributes), "as":as, "an":an});		//for inserted nodes, don't care about specific API accessed
 		}
-		//remainingAccesses are divided into two types: shallowNodes and deepNodes.  Shallow nodes are parents of deep nodes.
-		var insertionNodes = [];
-		var otherDeepNodes = [];
-		j = 0;
-		while (j < deepNodes.length){
-			var curNode = deepNodes[j];
-			var insert = false;
-			var setAttributes = [];
-			var start = j;
-			var as = [];
-			var an = [];
-			//see how many after this is talking about the same node
-			while (true){
-				if (!insert) insert = (deepNodes[j].a == "InsertBefore" || deepNodes[j].a == "AppendChild" || deepNodes[j].a == "document.write" || deepNodes[j].a == "ReplaceChild" || deepNodes[j].a == "SetInnerHTML");
-				if (deepNodes[j].a == "SetAttribute") setAttributes.push(deepNodes[j].n);
-				else if (deepNodes[j].a.indexOf("Set") == 0) setAttributes.push(deepNodes[j].a.substr(3).toLowerCase());
-				//(setattributes could have duplicate, but max of two dup)
-				as.push(deepNodes[j].a);
-				an.push(deepNodes[j].n);
-				j++;
-				if (j >= deepNodes.length || deepNodes[j-1].r != deepNodes[j].r) break;
-			}
-			if (insert){
-				an = an.map(function(o){if (o.indexOf("\\[o\\]")==0 || o.indexOf("<")==0) return ""; else return o;});
-				insertionNodes.push({"xpath":deepNodes[j-1].r, "forbidden":(allowEverything ? [] : setAttributes), "as":as, "an":an});		//for inserted nodes, don't care about specific API accessed
-				deepNodes.splice(start, j - start);
-				j = start;
-			}
-			else {
-				otherDeepNodes.push({"xpath":deepNodes[j-1].r, "forbidden":(allowEverything ? [] : setAttributes), "as":as, "an":an});
-			}
+		else {
+			otherDeepNodes.push({"xpath":deepNodes[j-1].r, "forbidden":(deepNodes[j-1].sub ? [] : setAttributes), "as":as, "an":an});
 		}
-		while (j < shallowNodes.length){
-			var curNode = shallowNodes[j];
-			var insert = false;
-			var setAttributes = [];
-			var start = j;
-			var as = [];
-			var an = [];
-			//see how many after this is talking about the same node
-			while (true){
-				if (!insert) insert = (shallowNodes[j].a == "InsertBefore" || shallowNodes[j].a == "AppendChild" || shallowNodes[j].a == "document.write" || shallowNodes[j].a == "ReplaceChild" || shallowNodes[j].a == "SetInnerHTML");
-				if (shallowNodes[j].a == "SetAttribute") setAttributes.push(shallowNodes[j].n);
-				else if (shallowNodes[j].a.indexOf("Set") == 0) setAttributes.push(shallowNodes[j].a.substr(3).toLowerCase());
-				//(setattributes could have duplicate, but max of two dup)
-				as.push(shallowNodes[j].a);
-				an.push(shallowNodes[j].n);
-				j++;
-				if (j >= shallowNodes.length || shallowNodes[j-1].r != shallowNodes[j].r) break;
-			}
-			if (insert){
-				an = an.map(function(o){if (o.indexOf("\\[o\\]")==0 || o.indexOf("<")==0) return ""; else return o;});
-				insertionNodes.push({"xpath":shallowNodes[j-1].r, "forbidden":(allowEverything ? [] : setAttributes), "as":as, "an":an});		//for inserted nodes, don't care about specific API accessed
-				shallowNodes.splice(start, j - start);
-				j = start;
-			}
-		}
-		//insertionNodes contains deep nodes that have accessed insertion APIs.
-		//Now, for these nodes, discover their pattern --- e.g. //DIV[@id="ad-.*"].  If impossible, list themselves
-		retVal.adWidget = learnPatterns(insertionNodes);
-		retVal.otherDeeps = learnPatterns(otherDeepNodes);
-		//get how many entries the adWidget and otherDeeps patterns matched:
-		var excludeAccessesMatched = function(ps){
-			for (var k = 0; k < ps.length; k++){
-				var match = 0;
-				for (var l = 0; l < entries.length; l++){
-					var vxpath = entries[l].r.split('|')[0];
-					var node = getElementByXpath(vxpath);
-					if (ps[k].sp != "" && !!node && node.nodeType == 1){
-						if (node.mozMatchesSelector(ps[k].sp) && (ps[k].a=="!" || (ps[k].a == entries[l].a && (ps[k].n == "" || ps[k].n == entries[l].n || entries[l].n.match(ps[k].n))))) {
-							match++;
-							entries.splice(l, 1);			//violatingEntries will be modified here.
-							l--;
-						}
-					}
-					else {
-						if (ps[k].xp == vxpath && (ps[k].a=="!" || (ps[k].a == entries[l].a && (ps[k].n == "" || ps[k].n == entries[l].n || entries[l].n.match(ps[k].n))))){
-							match++;
-							entries.splice(l, 1);			//violatingEntries will be modified here.
-							l--;
-						}
-					}
-				}
-				ps[k].n = match;
-			}
-		}
-		excludeAccessesMatched(retVal.adWidget);
-		excludeAccessesMatched(retVal.otherDeeps);
-		//check root policy entry type possibility.
-		//note: root policies are not meant to be exclusive.  Deriving one root policy will not lead to excluding its matching accesses.
-		//Therefore, root policies may overlap each other in terms of coverage.
-		var getRootPolicies = function(nodeCollection, ps){
-			for (var k = 0; k < nodeCollection.length; k++){
-				var nodeXPath = nodeCollection[k].xpath.split("|")[0];
-				var l = nodeXPath.split('/').length - 1;
-				if (l <= 3) continue;
-				var node = getElementByXpath(nodeXPath);
-				for (j = 0; j < ps.length; j++){
-					if (ps[j].sp != "" && !!node && node.nodeType == 1 && node.mozMatchesSelector(ps[j].sp)) break;
-					if (ps[j].sp == "" && nodeXPath == ps[j].xp) break;
-				}
-				var matchIndex = j;
-				if (matchIndex == ps.length) continue;			//no match for this node (probably no policy generated to match this)
-				var roots = {};				//{'scrollLeft': 3}
-				var parents = {};			//{'scrollLeft': 3}
-				for (j = 0; j < shallowNodes.length; j++){
-					var sx = shallowNodes[j].r.split('|')[0];
-					if (nodeXPath.indexOf(sx) != 0) {
-						continue;
-					}
-					//this shallowNodes matches as a prefix for a deeper nodes.
-					var key = ">" + shallowNodes[j].a + ((shallowNodes[j].n != "") ? (":" + shallowNodes[j].n) : "");
-					if (roots.hasOwnProperty(key)) {
-						roots[key] += 1;
-					}
-					else roots[key] = 1;
-					if (sx.split('/').length == l) {
-						parents[key] = 1;
-					}
-					//mark and get rid of this in violatingEntries in the future:
-					shallowNodes[j].shouldDelete = true;
-				}
-				for (var key in roots){
-					if (roots[key] > 1 || ((!parents.hasOwnProperty(key)) && roots[key] == 1)){
-						var toPush = ps[matchIndex].p.substr(0, ps[matchIndex].p.indexOf(">")) + key;
-						if (retVal.root.map(function(o){return o.p}).indexOf(toPush) == -1) retVal.root.push({p:toPush, n: roots[key]});
-					}
-					else if (parents.hasOwnProperty(key) && roots[key] == 1){
-						var toPush = ps[matchIndex].p.substr(0, ps[matchIndex].p.indexOf(">")) + key;
-						if (retVal.parent.map(function(o){return o.p}).indexOf(toPush) == -1) retVal.parent.push({p:toPush, n: 1});
-					}
-				}
-			}
-		}
-		getRootPolicies(insertionNodes, retVal.adWidget);
-		getRootPolicies(otherDeepNodes, retVal.otherDeeps);
-		//get rid of marked shallowNodes:
-		for (var j = 0; j < shallowNodes.length; j++){
-			if (shallowNodes[j].shouldDelete){
-				for (var k = 0; k < entries.length; k++){
-					if (entries[k].r == shallowNodes[j].r) {
-						entries.splice(k, 1);
-						k--;
-					}
-				}
-			}
-		}
-		//For the rest unclassified, prompt suspicious tag and ask the developer (user).
-		for (var j = 0; j < entries.length; j++){
-			var nodeInfo = "";
-			if (!!entries[j].n) nodeInfo = entries[j].n;
-			retVal.unclassified.push({p:entries[j].r.split('|')[0] + ">" + entries[j].a + (nodeInfo == "" ? "" : ":" + nodeInfo), n: 1});
-		}
-		if (allowEverything){
-			//this is sub access, add "sub:" in front of adWidget and otherDeeps:
-			for (var i = 0; i < retVal.adWidget.length; i++){
-				retVal.adWidget[i].p = "sub:" + retVal.adWidget[i].p;
-			}
-			for (var i = 0; i < retVal.otherDeeps.length; i++){
-				retVal.otherDeeps[i].p = "sub:" + retVal.otherDeeps[i].p;
-			}
-		}
-		return retVal;
+		deepNodes.splice(start, j - start);
+		j = start;
 	}
-	policies = combinePolicies(computePoliciesForEntries(dv, false), policies);
-	policies = combinePolicies(computePoliciesForEntries(subAccesses, true), policies);
+	while (j < shallowNodes.length){
+		var curNode = shallowNodes[j];
+		var insert = false;
+		var setAttributes = [];
+		var start = j;
+		var as = [];
+		var an = [];
+		//see how many after this is talking about the same node
+		while (true){
+			if (!insert) insert = (shallowNodes[j].a == "InsertBefore" || shallowNodes[j].a == "AppendChild" || shallowNodes[j].a == "document.write" || shallowNodes[j].a == "ReplaceChild" || shallowNodes[j].a == "SetInnerHTML");
+			if (shallowNodes[j].a == "SetAttribute") setAttributes.push(shallowNodes[j].n);
+			else if (shallowNodes[j].a.indexOf("Set") == 0) setAttributes.push(shallowNodes[j].a.substr(3).toLowerCase());
+			//(setattributes could have duplicate, but max of two dup)
+			as.push(shallowNodes[j].a);
+			an.push(shallowNodes[j].n);
+			j++;
+			if (j >= shallowNodes.length || shallowNodes[j-1].r != shallowNodes[j].r) break;
+		}
+		if (insert){
+			an = an.map(function(o){if (o.indexOf("\\[o\\]")==0 || o.indexOf("<")==0) return ""; else return o;});
+			insertionNodes.push({"xpath":shallowNodes[j-1].r, "forbidden":(shallowNodes[j-1].sub ? [] : setAttributes), "as":as, "an":an});		//for inserted nodes, don't care about specific API accessed
+			shallowNodes.splice(start, j - start);
+			j = start;
+		}
+	}
+	//Now, insertionNodes include all nodes whose insertion apis are called.  otherDeepNodes include all the rest deep nodes.
+	//Now, for these nodes, discover their pattern --- e.g. //DIV[@id="ad-.*"].  If impossible, list themselves.
+	policies.adWidget = learnPatterns(insertionNodes);
+	policies.otherDeeps = learnPatterns(otherDeepNodes);
+	//Iterate through all insertionNodes and otherDeepNodes, adding sub: to the policy beginning if necessary
+	var addSubPolicy = function(ps){
+		for (var k = 0; k < ps.length; k++){
+			var matched = false;
+			for (var l = 0; l < dv.length; l++){
+				var vxpath = dv[l].r.split('|')[0];
+				var node = getElementByXpath(vxpath);
+				if (ps[k].sp != "" && !!node && node.nodeType == 1){
+					if (node.mozMatchesSelector(ps[k].sp) && (ps[k].a=="!" || ps[k].a=="" || (ps[k].a == dv[l].a && (ps[k].n == "" || ps[k].n == dv[l].n || dv[l].n.match(ps[k].n))))) {
+						matched = true;
+						if (dv[l].sub) ps[k].p = "sub:" + ps[k].p;
+					}
+				}
+				else {
+					if (ps[k].xp == vxpath && (ps[k].a=="!" || ps[k].a=="" || (ps[k].a == dv[l].a && (ps[k].n == "" || ps[k].n == dv[l].n || dv[l].n.match(ps[k].n))))){
+						matched = true;
+						if (dv[l].sub) ps[k].p = "sub:" + ps[k].p;
+					}
+				}
+				if (matched) break;
+			}
+			if (matched) continue;
+		}
+	}
+	addSubPolicy(policies.adWidget);
+	addSubPolicy(policies.otherDeeps);
+	//done suggesting deep/insertion node selector candidates.
+	if (policies.adWidget.length > 0 || policies.otherDeeps.length > 0){
+		self.port.emit("postToInteractive", {type:"insertionOtherDeeps", p:policies, hd:tld, tpd:td, matches:matchedEntries, tve:dv.length});
+	}
+	else {
+		afterInsertionDeepPolicy();
+	}
+}
+
+var afterInsertionDeepPolicy = function(){
+	//exclude entries the adWidget and otherDeeps patterns matched:
+	var excludeAccessesMatched = function(ps){
+		for (var k = 0; k < ps.length; k++){
+			var match = 0;
+			for (var l = 0; l < dv.length; l++){
+				var vxpath = dv[l].r.split('|')[0];
+				var node = getElementByXpath(vxpath);
+				if (ps[k].sp != "" && !!node && node.nodeType == 1){
+					if (node.mozMatchesSelector(ps[k].sp) && (ps[k].a=="!" || (ps[k].a == dv[l].a && (ps[k].n == "" || ps[k].n == dv[l].n || dv[l].n.match(ps[k].n))))) {
+						match++;
+						dv.splice(l, 1);			//dv will be modified here.
+						l--;
+					}
+				}
+				else {
+					if (ps[k].xp == vxpath && (ps[k].a=="!" || (ps[k].a == dv[l].a && (ps[k].n == "" || ps[k].n == dv[l].n || dv[l].n.match(ps[k].n))))){
+						match++;
+						dv.splice(l, 1);			//dv will be modified here.
+						l--;
+					}
+				}
+			}
+			ps[k].n = match;
+		}
+	}
+	excludeAccessesMatched(policies.adWidget);
+	excludeAccessesMatched(policies.otherDeeps);
+	//check root and parent policy entry type possibility.
+	//note: root and parent policies are not meant to be exclusive.  Deriving one root policy will not lead to excluding its matching accesses.
+	//Therefore, root policies may overlap each other in terms of coverage.
+	var getRootPolicies = function(nodeCollection, ps){
+		for (var k = 0; k < nodeCollection.length; k++){
+			var nodeXPath = nodeCollection[k].xpath.split("|")[0];
+			var l = nodeXPath.split('/').length - 1;
+			if (l <= 3) continue;
+			var node = getElementByXpath(nodeXPath);
+			for (j = 0; j < ps.length; j++){
+				if (ps[j].sp != "" && !!node && node.nodeType == 1 && node.mozMatchesSelector(ps[j].sp)) break;
+				if (ps[j].sp == "" && nodeXPath == ps[j].xp) break;
+			}
+			var matchIndex = j;
+			if (matchIndex == ps.length) continue;			//no match for this node (probably no policy generated to match this)
+			var roots = {};				//{'scrollLeft': 3}
+			var parents = {};			//{'scrollLeft': 3}
+			for (j = 0; j < shallowNodes.length; j++){
+				var sx = shallowNodes[j].r.split('|')[0];
+				if (nodeXPath.indexOf(sx) != 0) {
+					continue;
+				}
+				//this shallowNodes matches as a prefix for a deeper nodes.
+				var key = ">" + shallowNodes[j].a + ((shallowNodes[j].n != "") ? (":" + shallowNodes[j].n) : "");
+				if (roots.hasOwnProperty(key)) {
+					roots[key] += 1;
+				}
+				else roots[key] = 1;
+				if (sx.split('/').length == l) {
+					parents[key] = 1;
+				}
+				//mark and get rid of this in violatingEntries in the future:
+				shallowNodes[j].shouldDelete = true;
+			}
+			for (var key in roots){
+				if (roots[key] > 1 || ((!parents.hasOwnProperty(key)) && roots[key] == 1)){
+					var toPush = ps[matchIndex].p.substr(0, ps[matchIndex].p.indexOf(">")) + key;
+					if (policies.root.map(function(o){return o.p}).indexOf(toPush) == -1) policies.root.push({p:toPush, n: roots[key]});
+				}
+				else if (parents.hasOwnProperty(key) && roots[key] == 1){
+					var toPush = ps[matchIndex].p.substr(0, ps[matchIndex].p.indexOf(">")) + key;
+					if (policies.parent.map(function(o){return o.p}).indexOf(toPush) == -1) policies.parent.push({p:toPush, n: 1});
+				}
+			}
+		}
+	}
+	getRootPolicies(insertionNodes, policies.adWidget);
+	getRootPolicies(otherDeepNodes, policies.otherDeeps);
+	//get rid of marked shallowNodes:
+	for (var j = 0; j < shallowNodes.length; j++){
+		if (shallowNodes[j].shouldDelete){
+			for (var k = 0; k < dv.length; k++){
+				if (dv[k].r == shallowNodes[j].r) {
+					dv.splice(k, 1);
+					k--;
+				}
+			}
+		}
+	}
+	//For the rest unclassified, prompt suspicious tag and ask the developer (user).
+	for (var j = 0; j < dv.length; j++){
+		var nodeInfo = "";
+		if (!!dv[j].n) nodeInfo = dv[j].n;
+		policies.unclassified.push({p:dv[j].r.split('|')[0] + ">" + dv[j].a + (nodeInfo == "" ? "" : ":" + nodeInfo), n: 1});
+	}
 	processPolicies();
 }
 

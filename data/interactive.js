@@ -21,6 +21,13 @@ function escapeHTML(string){
 	return String(string).replace(/[&<>"'\/]/g, function(s){return entityMap[s];});
 }
 
+function collapse(category){
+	if ($("#"+category).parent().children("span.categoryTitle").hasClass("blue")) {
+		$("#"+category).parent().children("span.categoryTitle").removeClass("blue");
+		$("#"+category).parent().children("span.categoryTitle").addClass("green");
+		$("#"+category).parent().children("ul").addClass("hidden");
+	}
+}
 function receiveMessage(event){
 	var data = event.data;
 	extWindow = event.source;
@@ -42,7 +49,7 @@ function receiveMessage(event){
 	document.getElementById("hd").innerHTML = data.hd;
 	document.getElementById("tpd").innerHTML = data.tpd;
 	document.getElementById("mn").innerHTML = data.matches;
-	document.getElementById("rvn").innerHTML = policy.totalViolatingEntries;
+	document.getElementById("rvn").innerHTML = data.tve;
 	switch (data.type){
 		case "base":
 			console.log("base UI phase");
@@ -77,11 +84,7 @@ function receiveMessage(event){
 				$("#existing").parent().children("span.categoryTitle").addClass("blue");
 				$("#existing").parent().children("ul").removeClass("hidden");
 			}
-			if ($("#base").parent().children("span.categoryTitle").hasClass("blue")) {
-				$("#base").parent().children("span.categoryTitle").removeClass("blue");
-				$("#base").parent().children("span.categoryTitle").addClass("green");
-				$("#base").parent().children("ul").addClass("hidden");
-			}
+			collapse("base");
 			break;
 		case "tag":
 			console.log("tag UI phase");
@@ -100,11 +103,42 @@ function receiveMessage(event){
 				$("#tag").parent().children("span.categoryTitle").addClass("blue");
 				$("#tag").parent().children("ul").toggleClass("hidden");
 			}
-			if ($("#existing").parent().children("span.categoryTitle").hasClass("blue")) {
-				$("#existing").parent().children("span.categoryTitle").removeClass("blue");
-				$("#existing").parent().children("span.categoryTitle").addClass("green");
-				$("#existing").parent().children("ul").addClass("hidden");
+			collapse("base");
+			collapse("existing");
+			break;
+		case "insertionOtherDeeps":
+			console.log("insertionOtherDeeps UI phase");
+			for (i = 0; i < policy.adWidget.length; i++){
+				policyID++;
+				eleIDToPolicyMap[policyID.toString()] = policy.adWidget[i].p;
+				policyToMatchedNumbersMap[policy.adWidget[i].p] = policy.adWidget[i].n;
+				var toAppend = document.createElement("li");
+				toAppend.innerHTML = "<span class='output clickable' policyID='" + policyID + "'>" + escapeHTML(policy.adWidget[i].p) + "</span><button class='edit'>edit</button><button class='delete'>delete</button><input class='check' type='checkbox' checked>";
+				$(toAppend).addClass("policyEntry");
+				document.getElementById("adWidget").appendChild(toAppend);
 			}
+			for (i = 0; i < policy.otherDeeps.length; i++){
+				policyID++;
+				eleIDToPolicyMap[policyID.toString()] = policy.otherDeeps[i].p;
+				policyToMatchedNumbersMap[policy.otherDeeps[i].p] = policy.otherDeeps[i].n;
+				var toAppend = document.createElement("li");
+				toAppend.innerHTML = "<span class='output clickable' policyID='" + policyID + "'>" + escapeHTML(policy.otherDeeps[i].p) + "</span><button class='edit'>edit</button><button class='delete'>delete</button><input class='check' type='checkbox' checked>";
+				$(toAppend).addClass("policyEntry");
+				document.getElementById("otherDeeps").appendChild(toAppend);
+			}
+			if (policy.adWidget.length > 0) {
+				$("#adWidget").parent().removeClass("gray");
+				$("#adWidget").parent().children("span.categoryTitle").addClass("blue");
+				$("#adWidget").parent().children("ul").toggleClass("hidden");
+			}
+			if (policy.otherDeeps.length > 0) {
+				$("#otherDeeps").parent().removeClass("gray");
+				$("#otherDeeps").parent().children("span.categoryTitle").addClass("blue");
+				$("#otherDeeps").parent().children("ul").toggleClass("hidden");
+			}
+			collapse("base");
+			collapse("existing");
+			collapse("tag");
 			break;
 		default:
 			break;
@@ -113,6 +147,53 @@ function receiveMessage(event){
 
 function sendMessage(msg){
 	extWindow.postMessage({type:"fromInteractive", p:policy, phase:msg}, "*");
+}
+
+function convertPolicyFormat(p){
+	//This converts a //DIV[@id='c']>getAttribute:src to data structure used in contentScript.js: 
+	//{p:"//DIV[@id='c']>getAttribute", sp:"DIV[id='c']", xp:"", a:"getAttribute", n:"src"}
+	var pp = p;
+	var sp = "";
+	var xp = "";
+	var a = "";
+	var n = "";
+	if (p.indexOf("sub:") == 0) p = p.substr(4);
+	if (p.indexOf(">") > -1) {
+		a = p.substr(p.indexOf(">")+1);
+		if (a.indexOf(":")>-1){
+			n = a.substr(a.indexOf(":")+1);
+			a = a.substr(0, a.indexOf(":"));
+		}
+		p = p.substr(0, p.indexOf(">"));
+	}
+	if (p.indexOf("//") == 0){
+		sp = p.substr(2, p.indexOf("[") - 2);
+		p = p.substr(p.indexOf("[")+1);
+		var classes = "";
+		while (p.length > 0 && p[0]!="]"){
+			p = p.substr(1);		//get rid of @
+			var attrName = p.substr(0, p.indexOf("="));
+			p = p.substr(attrName.length + 2);		//get rid of ='
+			var attrValue = p.substr(0, p.indexOf("'"));
+			if (attrName == "class") {
+				//class names cannot have .* in them.  If forced to have, cannot visualize correctly.
+				classes += "." + attrValue;
+			}
+			else {
+				sp += "[";
+				sp += attrName;
+				if (attrValue.substr(0,2) ==".*") {sp += "$"; attrValue = attrValue.substr(2);}
+				if (attrValue.substr(-2,2) == ".*") {sp += "^"; attrValue = attrValue.substr(0, attrValue.length - 2);}
+				sp += "='" + attrValue + "']"
+			}
+			p = p.substr(p.indexOf("'")+1);
+		}
+		sp += classes;
+	}
+	else {
+		xp = p;
+	}
+	return {p:pp, sp:sp, xp:xp, a:a, n:n};
 }
 
 function next(){
@@ -135,6 +216,16 @@ function next(){
 			});
 			sendMessage(phase);
 			break;
+		case "insertionOtherDeeps":
+			policy.adWidget = [];
+			$("#adWidget input:checked").parents().children("span.output").each(function (){
+				policy.adWidget.push(convertPolicyFormat($(this).text()));
+			});
+			$("#adWidget input:checked").parents().children("span.output").each(function (){
+				policy.otherDeeps.push(convertPolicyFormat($(this).text()));
+			});
+			sendMessage(phase);
+			break;
 		default:
 			break;
 	}
@@ -152,6 +243,7 @@ $(document).on("click", "span.clickable", null, function(){
 	var xpath = $(this).text();
 	xpath = xpath.substr(0, xpath.indexOf('>'));
 	if (xpath.indexOf("#text[") > -1) xpath = xpath.substr(0, xpath.indexOf("#text["));
+	if (xpath.indexOf("sub:")==0) xpath = xpath.substr(4);
 	if ($(this).hasClass("clicked")){
 		extWindow.postMessage({type:"remove", selector: mapXPathToCSS[$(this).text()], XPath:xpath}, "*");
 	}
