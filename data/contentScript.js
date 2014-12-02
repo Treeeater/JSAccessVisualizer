@@ -143,7 +143,7 @@ self.port.on("inferModel", function(msg){
 
 function processPolicies(){
 	//done with interactive phase and policy candidate generation, present them to the admin.
-	if (policies.base.length == 0 && policies.tag.length == 0 && policies.root.length == 0 && policies.sub.length == 0 && policies.adWidget.length == 0 && policies.otherDeeps.length == 0 && policies.parent.length == 0 && policies.unclassified.length == 0) return;
+	if (policies.base.length == 0 && policies.tag.length == 0 && policies.root.length == 0 && policies.adWidget.length == 0 && policies.otherDeeps.length == 0 && policies.parent.length == 0 && policies.unclassified.length == 0) return;
 	self.port.emit("returningPolicy", {policy:policies, domain:tld, thirdPDomain:td});
 }
 
@@ -711,6 +711,7 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 	//Collect unmatched cases
 	var policyBase = {};
 	var outgoingNetworkRecorded = {};
+	var textPushed = [];
 	while (curData.length > 4 && curData.substr(0, 4) == "_r: "){
 		policies.totalViolatingEntries++;
 		curData = curData.substr(4);
@@ -732,7 +733,8 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 		}
 		else if (thisData[thisData.length - 1] == "\n") additional = thisData.substr(0, thisData.length - 1);
 		else additional = thisData;
-		var textPushed = [];
+		if (additional == "ScrollTop" || additional == "ScrollLeft" || additional == "ScrollHeight" || additional == "ScrollWidth" || additional == "ClientTop" || additional == "ClientWidth" || additional == "ClientLeft" || additional == "ClientHeight" || additional == "GetBoundingClientRect") additional = "getSize";
+		if (additional == "document.write") nodeInfo = "";
 		//Ignore base access (/html, document.cookie, etc.)
 		if (resource[0] == "/"){
 			var temp = resource.split("|")[0];
@@ -806,7 +808,6 @@ var afterBasePolicy = function(){
 	//base policy candidates were approved/disapproved, now move onto site-specific policies.
 	//dv stores all ss policies.
 	if (dv.length == 0) {
-		alert("All existing accesses are covered by current policy candidates, exiting...");
 		processPolicies();
 		return;
 	}
@@ -860,7 +861,6 @@ var afterTagPolicy = function(){
 		}
 	}
 	if (dv.length == 0) {
-		alert("All existing accesses are covered by current policy candidates, exiting...");
 		processPolicies();
 		return;
 	}
@@ -1004,24 +1004,35 @@ var afterTagPolicy = function(){
 	var addSubPolicy = function(ps){
 		for (var k = 0; k < ps.length; k++){
 			var matched = false;
+			ps[k].shouldAddSub = false;
+			ps[k].shouldRetainOriginal = false;
 			for (var l = 0; l < dv.length; l++){
 				var vxpath = dv[l].r;
 				var node = getElementByXpath(vxpath);
 				if (ps[k].sp != "" && !!node && node.nodeType == 1){
 					if (node.mozMatchesSelector(ps[k].sp) && (ps[k].a=="!" || ps[k].a=="" || (ps[k].a == dv[l].a && (ps[k].n == "" || ps[k].n == dv[l].n || dv[l].n.match(ps[k].n))))) {
-						matched = true;
-						if (dv[l].sub) ps[k].p = "sub:" + ps[k].p;
+						if (dv[l].sub) ps[k].shouldAddSub = true;
+						else ps[k].shouldRetainOriginal = true;
 					}
 				}
 				else {
 					if (ps[k].xp == vxpath && (ps[k].a=="!" || ps[k].a=="" || (ps[k].a == dv[l].a && (ps[k].n == "" || ps[k].n == dv[l].n || dv[l].n.match(ps[k].n))))){
-						matched = true;
-						if (dv[l].sub) ps[k].p = "sub:" + ps[k].p;
+						if (dv[l].sub) ps[k].shouldAddSub = true;
+						else ps[k].shouldRetainOriginal = true;
 					}
 				}
-				if (matched) break;
 			}
-			if (matched) continue;
+		}
+		for (k = 0; k < ps.length; k++){
+			if (ps[k].shouldAddSub){
+				if (!ps[k].shouldRetainOriginal){
+					ps[k].p = "sub:" + ps[k].p;
+				}
+				else {
+					//add a sub policy, instead of replacing the original one.
+					ps.push({p:"sub:" + ps[k].p, sp:ps[k].sp, xp:ps[k].xp, a:ps[k].a, n:ps[k].n});
+				}
+			}
 		}
 	}
 	addSubPolicy(policies.adWidget);
@@ -1037,8 +1048,6 @@ var afterTagPolicy = function(){
 }
 
 var afterInsertionDeepPolicy = function(){
-	//Gather all Nodes of interests:
-	
 	//exclude entries the adWidget and otherDeeps patterns matched:
 	var excludeAccessesMatched = function(ps){
 		for (var k = 0; k < ps.length; k++){
@@ -1046,15 +1055,22 @@ var afterInsertionDeepPolicy = function(){
 			for (var l = 0; l < dv.length; l++){
 				var vxpath = dv[l].r;
 				var node = getElementByXpath(vxpath);
+				var selectorToMatch = ps[k].sp;
+				var xpToMatch = ps[k].xp;
+				var sub = false;
+				if (ps[k].p.substr(0, 4) == "sub:"){
+					selectorToMatch + " " + node.tagName;
+					sub = true;
+				}
 				if (ps[k].sp != "" && !!node && node.nodeType == 1){
-					if (node.mozMatchesSelector(ps[k].sp) && (ps[k].a=="!" || (ps[k].a == dv[l].a && (ps[k].n == "" || ps[k].n == dv[l].n || dv[l].n.match(ps[k].n))))) {
+					if (node.mozMatchesSelector(selectorToMatch) && (ps[k].a=="!" || (ps[k].a == dv[l].a && (ps[k].n == "" || ps[k].n == dv[l].n || dv[l].n.match(ps[k].n))))) {
 						match++;
 						dv.splice(l, 1);			//dv will be modified here.
 						l--;
 					}
 				}
 				else {
-					if (ps[k].xp == vxpath && (ps[k].a=="!" || (ps[k].a == dv[l].a && (ps[k].n == "" || ps[k].n == dv[l].n || dv[l].n.match(ps[k].n))))){
+					if (((vxpath.indexOf(xpToMatch)==0 && vxpath != xpToMatch && sub) || (!sub && vxpath == xpToMatch)) && (ps[k].a=="!" || (ps[k].a == dv[l].a && (ps[k].n == "" || ps[k].n == dv[l].n || dv[l].n.match(ps[k].n))))){
 						match++;
 						dv.splice(l, 1);			//dv will be modified here.
 						l--;
@@ -1066,54 +1082,91 @@ var afterInsertionDeepPolicy = function(){
 	}
 	excludeAccessesMatched(policies.adWidget);
 	excludeAccessesMatched(policies.otherDeeps);
+	//Gather all Nodes of interests:
+	existingPolicies = existingPolicies.split("\n");
+	noi = [];
+	for (var i = 0; i < existingPolicies.length; i++){
+		//skip empty, special and tag policies in existing Policies.
+		if (existingPolicies == "" || existingPolicies[0] != "/" || existingPolicies.indexOf("[")==-1 ) continue;
+		noi.push(convertPolicyFormat(existingPolicies[i]));
+	}
+	//get rid of sub: for root and parent candidate computation
+	for (var i = 0; i < policies.adWidget.length; i++){
+		noi.push({p:policies.adWidget[i].p, sp:policies.adWidget[i].sp, xp:policies.adWidget[i].xp, a:policies.adWidget[i].a, n:policies.adWidget[i].n});
+		if (noi[noi.length-1].p.substr(0,4) == "sub:") noi[noi.length-1].p = noi[noi.length-1].p.substr(4);
+	}
+	for (var i = 0; i < policies.otherDeeps.length; i++){
+		noi.push({p:policies.otherDeeps[i].p, sp:policies.otherDeeps[i].sp, xp:policies.otherDeeps[i].xp, a:policies.otherDeeps[i].a, n:policies.otherDeeps[i].n});
+		if (noi[noi.length-1].p.substr(0,4) == "sub:") noi[noi.length-1].p = noi[noi.length-1].p.substr(4);
+	}
 	//check root and parent policy entry type possibility.
 	//note: root and parent policies are not meant to be exclusive.  Deriving one root policy will not lead to excluding its matching accesses.
 	//Therefore, root policies may overlap each other in terms of coverage.
-	var getRootPolicies = function(nodeCollection, ps){
-		for (var k = 0; k < nodeCollection.length; k++){
-			var nodeXPath = nodeCollection[k].xpath;
-			var l = nodeXPath.split('/').length - 1;
-			if (l <= 3) continue;
-			var node = getElementByXpath(nodeXPath);
-			for (j = 0; j < ps.length; j++){
-				if (ps[j].sp != "" && !!node && node.nodeType == 1 && node.mozMatchesSelector(ps[j].sp)) break;
-				if (ps[j].sp == "" && nodeXPath == ps[j].xp) break;
-			}
-			var matchIndex = j;
-			if (matchIndex == ps.length) continue;			//no match for this node (probably no policy generated to match this)
+	var getRootPolicies = function(ps){
+		for (var k = 0; k < ps.length; k++){
 			var roots = {};				//{'scrollLeft': 3}
 			var parents = {};			//{'scrollLeft': 3}
-			for (j = 0; j < shallowNodes.length; j++){
-				var sx = shallowNodes[j].r;
-				if (nodeXPath.indexOf(sx) != 0) {
-					continue;
+			if (ps[k].xp != ""){
+				var l = ps[k].xp.split('/').length - 1;
+				if (l <= 3) continue;
+				for (var j = 0; j < shallowNodes.length; j++){
+					var sx = shallowNodes[j].r;
+					if (ps[k].xp.indexOf(sx) != 0) {
+						continue;
+					}
+					//this shallowNodes matches as a prefix for a deeper nodes.
+					var key = ">" + shallowNodes[j].a + ((shallowNodes[j].n != "") ? (":" + shallowNodes[j].n) : "");
+					if (roots.hasOwnProperty(key)) {
+						roots[key] += 1;
+					}
+					else roots[key] = 1;
+					if (sx.split('/').length == l) {
+						parents[key] = 1;
+					}
+					//mark and get rid of this in violatingEntries in the future:
+					shallowNodes[j].shouldDelete = true;
 				}
-				//this shallowNodes matches as a prefix for a deeper nodes.
-				var key = ">" + shallowNodes[j].a + ((shallowNodes[j].n != "") ? (":" + shallowNodes[j].n) : "");
-				if (roots.hasOwnProperty(key)) {
-					roots[key] += 1;
+			}
+			else {
+				for (var j = 0; j < shallowNodes.length; j++){
+					var curNode = getElementByXpath(shallowNodes[j].r);
+					var qualifyRoot = false;
+					if ($(curNode).find(ps[k].sp).length > 0) qualifyRoot = true;			//find means search through descendants that matches the selector in argument.
+					if (qualifyRoot){
+						var qualifyParent = false;
+						var nodes = document.querySelectorAll(ps[k].sp);
+						for (var l = 0; l < nodes.length; l++){
+							if (curNode == nodes[l].parentNode) {
+								qualifyParent = true;
+								break;
+							}
+						}
+						var key = ">" + shallowNodes[j].a + ((shallowNodes[j].n != "") ? (":" + shallowNodes[j].n) : "");
+						if (roots.hasOwnProperty(key)) {
+							roots[key] += 1;
+						}
+						else roots[key] = 1;
+						if (qualifyParent){
+							parents[key] = 1;
+						}
+						//mark and get rid of this in violatingEntries in the future:
+						shallowNodes[j].shouldDelete = true;
+					}
 				}
-				else roots[key] = 1;
-				if (sx.split('/').length == l) {
-					parents[key] = 1;
-				}
-				//mark and get rid of this in violatingEntries in the future:
-				shallowNodes[j].shouldDelete = true;
 			}
 			for (var key in roots){
 				if (roots[key] > 1 || ((!parents.hasOwnProperty(key)) && roots[key] == 1)){
-					var toPush = ps[matchIndex].p.substr(0, ps[matchIndex].p.indexOf(">")) + key;
+					var toPush = ps[k].p.substr(0, ps[k].p.indexOf(">")) + key;
 					if (policies.root.map(function(o){return o.p}).indexOf(toPush) == -1) policies.root.push({p:toPush, n: roots[key]});
 				}
 				else if (parents.hasOwnProperty(key) && roots[key] == 1){
-					var toPush = ps[matchIndex].p.substr(0, ps[matchIndex].p.indexOf(">")) + key;
+					var toPush = ps[k].p.substr(0, ps[k].p.indexOf(">")) + key;
 					if (policies.parent.map(function(o){return o.p}).indexOf(toPush) == -1) policies.parent.push({p:toPush, n: 1});
 				}
 			}
 		}
 	}
-	getRootPolicies(insertionNodes, policies.adWidget);
-	getRootPolicies(otherDeepNodes, policies.otherDeeps);
+	getRootPolicies(noi);
 	//get rid of marked shallowNodes:
 	for (var j = 0; j < shallowNodes.length; j++){
 		if (shallowNodes[j].shouldDelete){

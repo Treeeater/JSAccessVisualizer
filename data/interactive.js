@@ -223,10 +223,12 @@ function next(){
 			$("#adWidget input:checked").parents().children("span.output").each(function (){
 				policy.adWidget.push(convertPolicyFormat($(this).text()));
 			});
-			$("#adWidget input:checked").parents().children("span.output").each(function (){
+			policy.otherDeeps = [];
+			$("#otherDeeps input:checked").parents().children("span.output").each(function (){
 				policy.otherDeeps.push(convertPolicyFormat($(this).text()));
 			});
 			sendMessage(phase);
+			window.close();
 			break;
 		default:
 			break;
