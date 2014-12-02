@@ -440,7 +440,10 @@ function postMsgToInteractive(msg){
 
 function postToInteractive(msg){
 	if (msg.forceNewWindow){
-		if (typeof interactiveWindowHandler != "undefined") delete interactiveWindowHandler;
+		if (typeof interactiveWindowHandler != "undefined") {
+			interactiveWindowHandler.close();
+			delete interactiveWindowHandler;
+		}
 	}
 	if (typeof interactiveWindowHandler == "undefined") {
 		interactiveWindowHandler = window.open("interactive.html", "interactiveWindow", "height=800, width=1200, left=600, top=100, scrollbars=yes");

@@ -116,6 +116,7 @@ function receiveMessage(event){
 				toAppend.innerHTML = "<span class='output clickable' policyID='" + policyID + "'>" + escapeHTML(policy.adWidget[i].p) + "</span><button class='edit'>edit</button><button class='delete'>delete</button><input class='check' type='checkbox' checked>";
 				$(toAppend).addClass("policyEntry");
 				document.getElementById("adWidget").appendChild(toAppend);
+				if (!!policy.adWidget[i].sp) mapXPathToCSS[policy.adWidget[i].p] = policy.adWidget[i].sp;
 			}
 			for (i = 0; i < policy.otherDeeps.length; i++){
 				policyID++;
@@ -125,6 +126,7 @@ function receiveMessage(event){
 				toAppend.innerHTML = "<span class='output clickable' policyID='" + policyID + "'>" + escapeHTML(policy.otherDeeps[i].p) + "</span><button class='edit'>edit</button><button class='delete'>delete</button><input class='check' type='checkbox' checked>";
 				$(toAppend).addClass("policyEntry");
 				document.getElementById("otherDeeps").appendChild(toAppend);
+				if (!!policy.otherDeeps[i].sp) mapXPathToCSS[policy.otherDeeps[i].p] = policy.otherDeeps[i].sp;
 			}
 			if (policy.adWidget.length > 0) {
 				$("#adWidget").parent().removeClass("gray");
@@ -248,6 +250,10 @@ $(document).on("click", "span.clickable", null, function(){
 		extWindow.postMessage({type:"remove", selector: mapXPathToCSS[$(this).text()], XPath:xpath}, "*");
 	}
 	else{
+		if (!mapXPathToCSS.hasOwnProperty($(this).text()) || mapXPathToCSS[$(this).text()] == "") {
+			alert("not a valid selector!");
+			return;
+		}
 		extWindow.postMessage({type:"clicked", selector: mapXPathToCSS[$(this).text()], XPath:xpath}, "*");
 	}
 	$(this).toggleClass("clicked");

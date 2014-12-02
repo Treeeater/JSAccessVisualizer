@@ -18,6 +18,53 @@ var getElementByXpath = function (path) {
 	}
 };
 
+function convertPolicyFormat(p){
+	//This converts a //DIV[@id='c']>getAttribute:src to data structure used in contentScript.js: 
+	//{p:"//DIV[@id='c']>getAttribute", sp:"DIV[id='c']", xp:"", a:"getAttribute", n:"src"}
+	var pp = p;
+	var sp = "";
+	var xp = "";
+	var a = "";
+	var n = "";
+	if (p.indexOf("sub:") == 0) p = p.substr(4);
+	if (p.indexOf(">") > -1) {
+		a = p.substr(p.indexOf(">")+1);
+		if (a.indexOf(":")>-1){
+			n = a.substr(a.indexOf(":")+1);
+			a = a.substr(0, a.indexOf(":"));
+		}
+		p = p.substr(0, p.indexOf(">"));
+	}
+	if (p.indexOf("//") == 0){
+		sp = p.substr(2, p.indexOf("[") - 2);
+		p = p.substr(p.indexOf("[")+1);
+		var classes = "";
+		while (p.length > 0 && p[0]!="]"){
+			p = p.substr(1);		//get rid of @
+			var attrName = p.substr(0, p.indexOf("="));
+			p = p.substr(attrName.length + 2);		//get rid of ='
+			var attrValue = p.substr(0, p.indexOf("'"));
+			if (attrName == "class") {
+				//class names cannot have .* in them.  If forced to have, cannot visualize correctly.
+				classes += "." + attrValue;
+			}
+			else {
+				sp += "[";
+				sp += attrName;
+				if (attrValue.substr(0,2) ==".*") {sp += "$"; attrValue = attrValue.substr(2);}
+				if (attrValue.substr(-2,2) == ".*") {sp += "^"; attrValue = attrValue.substr(0, attrValue.length - 2);}
+				sp += "='" + attrValue + "']"
+			}
+			p = p.substr(p.indexOf("'")+1);
+		}
+		sp += classes;
+	}
+	else {
+		xp = p;
+	}
+	return {p:pp, sp:sp, xp:xp, a:a, n:n};
+}
+
 var getElementsByXpath = function (path) {
     return document.evaluate(path, document, null, 4, null);
 };
@@ -114,7 +161,7 @@ var getSoloPattern = function (abs){
 	var node = abs.n;
 	var resource = abs.r;
 	var forbidden = abs.f;
-	var retVal = {p:"", sp:"", xp:resource.split("|")[0]};
+	var retVal = {p:"", sp:"", xp:resource};
 	var attrNames = [];
 	var attrValues = [];
 	var constructP = function(){
@@ -438,7 +485,7 @@ var learnPatterns = function(insertionNodes){
 	var aggregatedAttrN = [];		//auxillary structures to generate aggregatedAttrNames.
 	var aggregatedAttrF = [];
 	for (i = 0; i < insertionNodes.length; i++){
-		var node = getElementByXpath(insertionNodes[i].xpath.split("|")[0]);
+		var node = getElementByXpath(insertionNodes[i].xpath);
 		if (!!node && node.nodeType == 1) {
 			var a = node.attributes;
 			var attributeCandidates = {};
@@ -621,6 +668,7 @@ self.port.on("fromInteractive",function(d){
 var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 	//rawData is the raw data obtained from document.checkPolicyToString
 	//Parse data to records
+	forceNewWindow = true;
 	policies = {base:[], tag:[], root:[], adWidget:[], otherDeeps:[], parent:[], unclassified:[], totalViolatingEntries:0};
 	if (!targetDomain) processPolicies();
 	rawData = rawData.replace(/\r/g,'');					//get rid of file specific \r
@@ -702,19 +750,13 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 					temp = temp.split("/");
 					temp.splice(-1, 1);
 					temp = temp.join("/");
-					var temp2 = "";
-					if (resource.split("|").length > 1) {
-						temp2 = resource.split("|")[1].split("/");
-						temp2.splice(-1, 1);
-						temp2 = temp2.join("/");
-					}
-					if (!!temp2) resource = temp + "|" + temp2;
+					resource = temp;
 					additional = "#text" + additional;
 				}
-				if (textPushed.indexOf(resource + additional + nodeInfo) == -1){
+				if (textPushed.indexOf(temp + additional + nodeInfo) == -1){
 					//make sure we don't push duplicates. Although the trace should not contain duplicates, we have shortened the records to text nodes, leaving only its parent in the resource, which might create duplicates.
-					dv.push({r:resource, a:additional, n:nodeInfo, t:tagName, shouldDelete:false});		//r = resource, a = apiname, n = argvalue, shouldDelete is a helper for getting rid of root-matching records.
-					textPushed.push(resource + additional + nodeInfo);
+					dv.push({r:temp, a:additional, n:nodeInfo, t:tagName, shouldDelete:false});		//r = resource, a = apiname, n = argvalue, shouldDelete is a helper for getting rid of root-matching records.
+					textPushed.push(temp + additional + nodeInfo);
 				}
 			}
 			else {
@@ -752,7 +794,8 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 	}
 	if (policies.base.length > 0){
 		//Done calculating base policy candidates, ask the admin to approve the base policies, and if this covers all, stop.
-		self.port.emit("postToInteractive", {type:"base", p:policies, hd:tld, tpd:td, matches:matchedEntries, forceNewWindow:true, tve:policies.totalViolatingEntries});
+		self.port.emit("postToInteractive", {type:"base", p:policies, hd:tld, tpd:td, matches:matchedEntries, forceNewWindow:forceNewWindow, tve:policies.totalViolatingEntries});
+		forceNewWindow = false;
 	}
 	else {
 		afterBasePolicy();
@@ -769,7 +812,8 @@ var afterBasePolicy = function(){
 	}
 	//emit existing site-specific policies if there's any.
 	if (!!existingPolicies){
-		self.port.emit("postToInteractive", {type:"existing", p:policies, hd:tld, tpd:td, matches:matchedEntries, ep:existingPolicies, tve:dv.length});
+		self.port.emit("postToInteractive", {type:"existing", p:policies, hd:tld, tpd:td, matches:matchedEntries, ep:existingPolicies, tve:dv.length, forceNewWindow:forceNewWindow});
+		forceNewWindow = false;
 	}
 	else {
 		afterExistingPolicy();
@@ -794,7 +838,8 @@ var afterExistingPolicy = function(){
 		}
 	}
 	if (policies.tag.length > 0){
-		self.port.emit("postToInteractive", {type:"tag", p:policies, hd:tld, tpd:td, matches:matchedEntries, tve:dv.length});
+		self.port.emit("postToInteractive", {type:"tag", p:policies, hd:tld, tpd:td, matches:matchedEntries, tve:dv.length, forceNewWindow:forceNewWindow});
+		forceNewWindow = false;
 	}
 	else {
 		afterTagPolicy();
@@ -837,8 +882,7 @@ var afterTagPolicy = function(){
 		return true;
 	}
 	for (var k = 0; k < remainingAccesses.length; k++){
-		var splited = remainingAccesses[k].r.split('|');
-		var xpath = splited[0];
+		var xpath = remainingAccesses[k].r;
 		var node = getElementByXpath(xpath);
 		var level = 0;
 		while ((!node || noAvailableAttrAsCandidate(node)) && level < 100){
@@ -852,15 +896,7 @@ var afterTagPolicy = function(){
 		}
 		if (level == 0) continue;
 		if (!!node) {
-			var selector = "";
-			if (splited.length > 1) {
-				selector = splited[1];
-				selector = selector.split('/');
-				selector.splice(-level, 1);
-				selector = selector.join("/");
-			}
-			if (selector != "") selector = '|' + selector;
-			remainingAccesses[k].r = xpath + selector;
+			remainingAccesses[k].r = xpath;
 			remainingAccesses[k].sub = true;
 		}
 		else {
@@ -878,17 +914,17 @@ var afterTagPolicy = function(){
 		var maxDepth = -1;
 		var maxIndex = 0;
 		for (j = 0; j < remainingAccesses.length; j++){
-			var curDepth = remainingAccesses[j].r.split('|')[0].split('/').length;
+			var curDepth = remainingAccesses[j].r.split('/').length;
 			if (curDepth > maxDepth) {
 				maxDepth = curDepth;
 				maxIndex = j;
 			}
 		}
 		deepNodes.push(remainingAccesses.splice(maxIndex, 1)[0]);
-		var maxXPath = deepNodes[deepNodes.length-1].r.split('|')[0];
+		var maxXPath = deepNodes[deepNodes.length-1].r;
 		//eliminate its parent nodes.
 		for (j = 0; j < remainingAccesses.length; j++){
-			var curXPath = remainingAccesses[j].r.split('|')[0];
+			var curXPath = remainingAccesses[j].r;
 			if (maxXPath != curXPath && maxXPath.indexOf(curXPath) == 0) {
 				//current access is a parent of other accesses.
 				shallowNodes.push(remainingAccesses.splice(j, 1)[0]);
@@ -969,7 +1005,7 @@ var afterTagPolicy = function(){
 		for (var k = 0; k < ps.length; k++){
 			var matched = false;
 			for (var l = 0; l < dv.length; l++){
-				var vxpath = dv[l].r.split('|')[0];
+				var vxpath = dv[l].r;
 				var node = getElementByXpath(vxpath);
 				if (ps[k].sp != "" && !!node && node.nodeType == 1){
 					if (node.mozMatchesSelector(ps[k].sp) && (ps[k].a=="!" || ps[k].a=="" || (ps[k].a == dv[l].a && (ps[k].n == "" || ps[k].n == dv[l].n || dv[l].n.match(ps[k].n))))) {
@@ -992,7 +1028,8 @@ var afterTagPolicy = function(){
 	addSubPolicy(policies.otherDeeps);
 	//done suggesting deep/insertion node selector candidates.
 	if (policies.adWidget.length > 0 || policies.otherDeeps.length > 0){
-		self.port.emit("postToInteractive", {type:"insertionOtherDeeps", p:policies, hd:tld, tpd:td, matches:matchedEntries, tve:dv.length});
+		self.port.emit("postToInteractive", {type:"insertionOtherDeeps", p:policies, hd:tld, tpd:td, matches:matchedEntries, tve:dv.length, forceNewWindow:forceNewWindow});
+		forceNewWindow = false;
 	}
 	else {
 		afterInsertionDeepPolicy();
@@ -1000,12 +1037,14 @@ var afterTagPolicy = function(){
 }
 
 var afterInsertionDeepPolicy = function(){
+	//Gather all Nodes of interests:
+	
 	//exclude entries the adWidget and otherDeeps patterns matched:
 	var excludeAccessesMatched = function(ps){
 		for (var k = 0; k < ps.length; k++){
 			var match = 0;
 			for (var l = 0; l < dv.length; l++){
-				var vxpath = dv[l].r.split('|')[0];
+				var vxpath = dv[l].r;
 				var node = getElementByXpath(vxpath);
 				if (ps[k].sp != "" && !!node && node.nodeType == 1){
 					if (node.mozMatchesSelector(ps[k].sp) && (ps[k].a=="!" || (ps[k].a == dv[l].a && (ps[k].n == "" || ps[k].n == dv[l].n || dv[l].n.match(ps[k].n))))) {
@@ -1032,7 +1071,7 @@ var afterInsertionDeepPolicy = function(){
 	//Therefore, root policies may overlap each other in terms of coverage.
 	var getRootPolicies = function(nodeCollection, ps){
 		for (var k = 0; k < nodeCollection.length; k++){
-			var nodeXPath = nodeCollection[k].xpath.split("|")[0];
+			var nodeXPath = nodeCollection[k].xpath;
 			var l = nodeXPath.split('/').length - 1;
 			if (l <= 3) continue;
 			var node = getElementByXpath(nodeXPath);
@@ -1045,7 +1084,7 @@ var afterInsertionDeepPolicy = function(){
 			var roots = {};				//{'scrollLeft': 3}
 			var parents = {};			//{'scrollLeft': 3}
 			for (j = 0; j < shallowNodes.length; j++){
-				var sx = shallowNodes[j].r.split('|')[0];
+				var sx = shallowNodes[j].r;
 				if (nodeXPath.indexOf(sx) != 0) {
 					continue;
 				}
@@ -1090,7 +1129,7 @@ var afterInsertionDeepPolicy = function(){
 	for (var j = 0; j < dv.length; j++){
 		var nodeInfo = "";
 		if (!!dv[j].n) nodeInfo = dv[j].n;
-		policies.unclassified.push({p:dv[j].r.split('|')[0] + ">" + dv[j].a + (nodeInfo == "" ? "" : ":" + nodeInfo), n: 1});
+		policies.unclassified.push({p:dv[j].r + ">" + dv[j].a + (nodeInfo == "" ? "" : ":" + nodeInfo), n: 1});
 	}
 	processPolicies();
 }
