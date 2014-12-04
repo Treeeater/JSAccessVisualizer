@@ -142,6 +142,8 @@ self.port.on("inferModel", function(msg){
 });
 
 function processPolicies(){
+	//tell the interactive window to close itself
+	self.port.emit("postToInteractive", {type:"close"});
 	//done with interactive phase and policy candidate generation, present them to the admin.
 	if (policies.base.length == 0 && policies.tag.length == 0 && policies.root.length == 0 && policies.adWidget.length == 0 && policies.otherDeeps.length == 0 && policies.parent.length == 0 && policies.unclassified.length == 0) return;
 	self.port.emit("returningPolicy", {policy:policies, domain:tld, thirdPDomain:td});
@@ -744,9 +746,6 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 				var tagName = temp.split("/");
 				tagName = tagName[tagName.length - 1];
 				tagName = tagName.substr(0, tagName.indexOf('['));
-				var key = "//" + tagName + ">" + additional + (nodeInfo != "" ? ":" + nodeInfo : "");
-				if (!tagPolicyValues[key]) tagPolicyValues[key] = 1;
-				else tagPolicyValues[key]++;
 				//If the tagName is #text, change the resource to its parent, and add text to additional
 				if (tagName == "#text") {
 					temp = temp.split("/");
@@ -755,10 +754,13 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 					resource = temp;
 					additional = "#text" + additional;
 				}
-				if (textPushed.indexOf(temp + additional + nodeInfo) == -1){
+				var key = "//" + tagName + ">" + additional + (nodeInfo != "" ? ":" + nodeInfo : "");
+				if (textPushed.indexOf(key) == -1){
+					if (!tagPolicyValues[key]) tagPolicyValues[key] = 1;
+					else tagPolicyValues[key]++;
 					//make sure we don't push duplicates. Although the trace should not contain duplicates, we have shortened the records to text nodes, leaving only its parent in the resource, which might create duplicates.
 					dv.push({r:temp, a:additional, n:nodeInfo, t:tagName, shouldDelete:false});		//r = resource, a = apiname, n = argvalue, shouldDelete is a helper for getting rid of root-matching records.
-					textPushed.push(temp + additional + nodeInfo);
+					textPushed.push(key);
 				}
 			}
 			else {

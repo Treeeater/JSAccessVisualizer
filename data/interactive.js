@@ -30,6 +30,10 @@ function collapse(category){
 }
 function receiveMessage(event){
 	var data = event.data;
+	if (data.type == "close"){
+		window.close();
+		return;
+	}
 	extWindow = event.source;
 	policy = data.p;
 	phase = data.type;
@@ -117,6 +121,7 @@ function receiveMessage(event){
 				$(toAppend).addClass("policyEntry");
 				document.getElementById("adWidget").appendChild(toAppend);
 				if (!!policy.adWidget[i].sp) mapXPathToCSS[policy.adWidget[i].p] = policy.adWidget[i].sp;
+				else mapXPathToCSS[policy.adWidget[i].p] = constructCSSFromXPath(policy.adWidget[i].p);
 			}
 			for (i = 0; i < policy.otherDeeps.length; i++){
 				policyID++;
@@ -127,6 +132,7 @@ function receiveMessage(event){
 				$(toAppend).addClass("policyEntry");
 				document.getElementById("otherDeeps").appendChild(toAppend);
 				if (!!policy.otherDeeps[i].sp) mapXPathToCSS[policy.otherDeeps[i].p] = policy.otherDeeps[i].sp;
+				else mapXPathToCSS[policy.otherDeeps[i].p] = constructCSSFromXPath(policy.otherDeeps[i].p);
 			}
 			if (policy.adWidget.length > 0) {
 				$("#adWidget").parent().removeClass("gray");
