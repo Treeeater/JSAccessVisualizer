@@ -28,6 +28,11 @@ function collapse(category){
 		$("#"+category).parent().children("ul").addClass("hidden");
 	}
 }
+
+function checkAll(event){
+	$(":checkbox").prop('checked', event.target.checked);
+}
+
 function receiveMessage(event){
 	var data = event.data;
 	if (data.type == "close"){
@@ -157,9 +162,87 @@ function sendMessage(msg){
 	extWindow.postMessage({type:"fromInteractive", p:policy, phase:msg}, "*");
 }
 
+function constructCSSFromXPath(p){
+	var retVal = "";
+	if (p.indexOf("sub:") == 0) p = p.substr(4);
+	if (p.indexOf(">") > -1) p = p.substr(0, p.indexOf(">"));
+	if (p.indexOf("//") == 0){
+		var tagName = p.substr(2, p.indexOf("[") - 2);
+		var consistentModifier = "";		//.class, [id='asdf']
+		var multipleModifiers = [];			//[class^='ad'],[class*='ad ']
+		p = p.substr(p.indexOf("[")+1);
+		while (p.length > 0 && p[0]!="]"){
+			p = p.substr(1);		//get rid of @
+			var attrName = p.substr(0, p.indexOf("="));
+			p = p.substr(attrName.length + 2);		//get rid of ='
+			var attrValue = p.substr(0, p.indexOf("'"));
+			if (attrName == "class") {
+				//class names cannot have .* in them.  If forced to have, cannot visualize correctly.
+				if (attrValue.substr(0,2) != ".*" && attrValue.substr(-2,2) != ".*") consistentModifier += "." + attrValue;
+				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) == ".*") {
+					attrValue = attrValue.substr(2, attrValue.length - 4);
+					consistentModifier = "[class*='" + attrValue + "']";
+				}
+				else if (attrValue.substr(0,2) == ".*" && attrValue.substr(-2,2) != ".*") {
+					attrValue = attrValue.substr(2);
+					multipleModifiers[0] = "[class^='" + attrValue + "']";
+					multipleModifiers[1] = "[class*=' " + attrValue + "']";
+				}
+				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) != ".*") {
+					attrValue = attrValue.substr(0, attrValue.length - 2);
+					multipleModifiers[0] = "[class$='" + attrValue + "']";
+					multipleModifiers[1] = "[class*='" + attrValue + " ']";
+				}
+			}
+			else {
+				consistentModifier += "[";
+				consistentModifier += attrName;
+				if (attrValue == ".*") {attrValue = "";}		//has attribute is good enuf
+				else if (attrValue.substr(0,2) == ".*" && attrValue.substr(-2,2) != ".*") {
+					consistentModifier += "^='";
+					attrValue = attrValue.substr(2);
+				}
+				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) != ".*") {
+					consistentModifier += "$='";
+					attrValue = attrValue.substr(0, attrValue.length - 2);
+				}
+				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) == ".*") {
+					consistentModifier += "*='";
+					attrValue = attrValue.substr(2, attrValue.length - 4);
+				}
+				else {
+					//trivial case.
+					attrValue = "='" + attrValue;
+				}
+				consistentModifier += attrValue + "']";
+			}
+			p = p.substr(p.indexOf("'")+1);
+		}
+		if (multipleModifiers.length == 0) retVal = tagName + consistentModifier;
+		else {
+			retVal = tagName + multipleModifiers[0] + consistentModifier + "," + tagName + multipleModifiers[1] + consistentModifier;
+		}
+	}
+	else if (p.indexOf("/HTML[1]") == 0){
+		p = p.substr(9);
+		var nodes = p.split("/");
+		var name = nodes[0].substr(0, nodes[0].indexOf('['));
+		retVal += name;
+		for (var i = 1; i < nodes.length; i++){
+			name = nodes[i].substr(0, nodes[i].indexOf('['));
+			retVal += ">" + name + ":nth-of-type(";
+			var index = nodes[i].substr(nodes[i].indexOf('[') + 1, nodes[i].indexOf(']') - nodes[i].indexOf('[') - 1);
+			retVal += index;
+			retVal += ")";
+		}
+	}
+	return retVal;
+}
+
 function convertPolicyFormat(p){
 	//This converts a //DIV[@id='c']>getAttribute:src to data structure used in contentScript.js: 
 	//{p:"//DIV[@id='c']>getAttribute", sp:"DIV[id='c']", xp:"", a:"getAttribute", n:"src"}
+	//gets rid of sub:
 	var pp = p;
 	var sp = "";
 	var xp = "";
@@ -175,28 +258,7 @@ function convertPolicyFormat(p){
 		p = p.substr(0, p.indexOf(">"));
 	}
 	if (p.indexOf("//") == 0){
-		sp = p.substr(2, p.indexOf("[") - 2);
-		p = p.substr(p.indexOf("[")+1);
-		var classes = "";
-		while (p.length > 0 && p[0]!="]"){
-			p = p.substr(1);		//get rid of @
-			var attrName = p.substr(0, p.indexOf("="));
-			p = p.substr(attrName.length + 2);		//get rid of ='
-			var attrValue = p.substr(0, p.indexOf("'"));
-			if (attrName == "class") {
-				//class names cannot have .* in them.  If forced to have, cannot visualize correctly.
-				classes += "." + attrValue;
-			}
-			else {
-				sp += "[";
-				sp += attrName;
-				if (attrValue.substr(0,2) ==".*") {sp += "$"; attrValue = attrValue.substr(2);}
-				if (attrValue.substr(-2,2) == ".*") {sp += "^"; attrValue = attrValue.substr(0, attrValue.length - 2);}
-				sp += "='" + attrValue + "']"
-			}
-			p = p.substr(p.indexOf("'")+1);
-		}
-		sp += classes;
+		sp = constructCSSFromXPath(p);
 	}
 	else {
 		xp = p;
@@ -266,50 +328,6 @@ $(document).on("click", "span.clickable", null, function(){
 	}
 	$(this).toggleClass("clicked");
 });		//affects future elements.
-
-function constructCSSFromXPath(p){
-	var retVal = "";
-	if (p.indexOf("sub:") == 0) p = p.substr(4);
-	if (p.indexOf(">") > -1) p = p.substr(0, p.indexOf(">"));
-	if (p.indexOf("//") == 0){
-		retVal = p.substr(2, p.indexOf("[") - 2);
-		p = p.substr(p.indexOf("[")+1);
-		var classes = "";
-		while (p.length > 0 && p[0]!="]"){
-			p = p.substr(1);		//get rid of @
-			var attrName = p.substr(0, p.indexOf("="));
-			p = p.substr(attrName.length + 2);		//get rid of ='
-			var attrValue = p.substr(0, p.indexOf("'"));
-			if (attrName == "class") {
-				//class names cannot have .* in them.  If forced to have, cannot visualize correctly.
-				classes += "." + attrValue;
-			}
-			else {
-				retVal += "[";
-				retVal += attrName;
-				if (attrValue.substr(0,2) ==".*") {retVal += "$"; attrValue = attrValue.substr(2);}
-				if (attrValue.substr(-2,2) == ".*") {retVal += "^"; attrValue = attrValue.substr(0, attrValue.length - 2);}
-				retVal += "='" + attrValue + "']"
-			}
-			p = p.substr(p.indexOf("'")+1);
-		}
-		retVal += classes;
-	}
-	else if (p.indexOf("/HTML[1]") == 0){
-		p = p.substr(9);
-		var nodes = p.split("/");
-		var name = nodes[0].substr(0, nodes[0].indexOf('['));
-		retVal += name;
-		for (var i = 1; i < nodes.length; i++){
-			name = nodes[i].substr(0, nodes[i].indexOf('['));
-			retVal += ">" + name + ":nth-of-type(";
-			var index = nodes[i].substr(nodes[i].indexOf('[') + 1, nodes[i].indexOf(']') - nodes[i].indexOf('[') - 1);
-			retVal += index;
-			retVal += ")";
-		}
-	}
-	return retVal;
-}
 
 $(document).on("click", "button.edit", null, function(){
 	var span = $(this).parent().children("span.output");

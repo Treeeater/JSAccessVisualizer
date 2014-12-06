@@ -136,9 +136,10 @@ function constructCSSFromXPath(p){
 	if (p.indexOf("sub:") == 0) p = p.substr(4);
 	if (p.indexOf(">") > -1) p = p.substr(0, p.indexOf(">"));
 	if (p.indexOf("//") == 0){
-		retVal = p.substr(2, p.indexOf("[") - 2);
+		var tagName = p.substr(2, p.indexOf("[") - 2);
+		var consistentModifier = "";		//.class, [id='asdf']
+		var multipleModifiers = [];			//[class^='ad'],[class*='ad ']
 		p = p.substr(p.indexOf("[")+1);
-		var classes = "";
 		while (p.length > 0 && p[0]!="]"){
 			p = p.substr(1);		//get rid of @
 			var attrName = p.substr(0, p.indexOf("="));
@@ -146,18 +147,50 @@ function constructCSSFromXPath(p){
 			var attrValue = p.substr(0, p.indexOf("'"));
 			if (attrName == "class") {
 				//class names cannot have .* in them.  If forced to have, cannot visualize correctly.
-				classes += "." + attrValue;
+				if (attrValue.substr(0,2) != ".*" && attrValue.substr(-2,2) != ".*") consistentModifier += "." + attrValue;
+				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) == ".*") {
+					attrValue = attrValue.substr(2, attrValue.length - 4);
+					consistentModifier = "[class*='" + attrValue + "']";
+				}
+				else if (attrValue.substr(0,2) == ".*" && attrValue.substr(-2,2) != ".*") {
+					attrValue = attrValue.substr(2);
+					multipleModifiers[0] = "[class^='" + attrValue + "']";
+					multipleModifiers[1] = "[class*=' " + attrValue + "']";
+				}
+				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) != ".*") {
+					attrValue = attrValue.substr(0, attrValue.length - 2);
+					multipleModifiers[0] = "[class$='" + attrValue + "']";
+					multipleModifiers[1] = "[class*='" + attrValue + " ']";
+				}
 			}
 			else {
-				retVal += "[";
-				retVal += attrName;
-				if (attrValue.substr(0,2) ==".*") {retVal += "$"; attrValue = attrValue.substr(2);}
-				if (attrValue.substr(-2,2) == ".*") {retVal += "^"; attrValue = attrValue.substr(0, attrValue.length - 2);}
-				retVal += "='" + attrValue + "']"
+				consistentModifier += "[";
+				consistentModifier += attrName;
+				if (attrValue == ".*") {attrValue = "";}		//has attribute is good enuf
+				else if (attrValue.substr(0,2) == ".*" && attrValue.substr(-2,2) != ".*") {
+					consistentModifier += "^='";
+					attrValue = attrValue.substr(2);
+				}
+				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) != ".*") {
+					consistentModifier += "$='";
+					attrValue = attrValue.substr(0, attrValue.length - 2);
+				}
+				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) == ".*") {
+					consistentModifier += "*='";
+					attrValue = attrValue.substr(2, attrValue.length - 4);
+				}
+				else {
+					//trivial case.
+					attrValue = "='" + attrValue;
+				}
+				consistentModifier += attrValue + "']";
 			}
 			p = p.substr(p.indexOf("'")+1);
 		}
-		retVal += classes;
+		if (multipleModifiers.length == 0) retVal = tagName + consistentModifier;
+		else {
+			retVal = tagName + multipleModifiers[0] + consistentModifier + "," + tagName + multipleModifiers[1] + consistentModifier;
+		}
 	}
 	else if (p.indexOf("/HTML[1]") == 0){
 		p = p.substr(9);

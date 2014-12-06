@@ -18,9 +18,87 @@ var getElementByXpath = function (path) {
 	}
 };
 
+function constructCSSFromXPath(p){
+	var retVal = "";
+	if (p.indexOf("sub:") == 0) p = p.substr(4);
+	if (p.indexOf(">") > -1) p = p.substr(0, p.indexOf(">"));
+	if (p.indexOf("//") == 0){
+		var tagName = p.substr(2, p.indexOf("[") - 2);
+		var consistentModifier = "";		//.class, [id='asdf']
+		var multipleModifiers = [];			//[class^='ad'],[class*='ad ']
+		p = p.substr(p.indexOf("[")+1);
+		while (p.length > 0 && p[0]!="]"){
+			p = p.substr(1);		//get rid of @
+			var attrName = p.substr(0, p.indexOf("="));
+			p = p.substr(attrName.length + 2);		//get rid of ='
+			var attrValue = p.substr(0, p.indexOf("'"));
+			if (attrName == "class") {
+				//class names cannot have .* in them.  If forced to have, cannot visualize correctly.
+				if (attrValue.substr(0,2) != ".*" && attrValue.substr(-2,2) != ".*") consistentModifier += "." + attrValue;
+				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) == ".*") {
+					attrValue = attrValue.substr(2, attrValue.length - 4);
+					consistentModifier = "[class*='" + attrValue + "']";
+				}
+				else if (attrValue.substr(0,2) == ".*" && attrValue.substr(-2,2) != ".*") {
+					attrValue = attrValue.substr(2);
+					multipleModifiers[0] = "[class^='" + attrValue + "']";
+					multipleModifiers[1] = "[class*=' " + attrValue + "']";
+				}
+				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) != ".*") {
+					attrValue = attrValue.substr(0, attrValue.length - 2);
+					multipleModifiers[0] = "[class$='" + attrValue + "']";
+					multipleModifiers[1] = "[class*='" + attrValue + " ']";
+				}
+			}
+			else {
+				consistentModifier += "[";
+				consistentModifier += attrName;
+				if (attrValue == ".*") {attrValue = "";}		//has attribute is good enuf
+				else if (attrValue.substr(0,2) == ".*" && attrValue.substr(-2,2) != ".*") {
+					consistentModifier += "^='";
+					attrValue = attrValue.substr(2);
+				}
+				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) != ".*") {
+					consistentModifier += "$='";
+					attrValue = attrValue.substr(0, attrValue.length - 2);
+				}
+				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) == ".*") {
+					consistentModifier += "*='";
+					attrValue = attrValue.substr(2, attrValue.length - 4);
+				}
+				else {
+					//trivial case.
+					attrValue = "='" + attrValue;
+				}
+				consistentModifier += attrValue + "']";
+			}
+			p = p.substr(p.indexOf("'")+1);
+		}
+		if (multipleModifiers.length == 0) retVal = tagName + consistentModifier;
+		else {
+			retVal = tagName + multipleModifiers[0] + consistentModifier + "," + tagName + multipleModifiers[1] + consistentModifier;
+		}
+	}
+	else if (p.indexOf("/HTML[1]") == 0){
+		p = p.substr(9);
+		var nodes = p.split("/");
+		var name = nodes[0].substr(0, nodes[0].indexOf('['));
+		retVal += name;
+		for (var i = 1; i < nodes.length; i++){
+			name = nodes[i].substr(0, nodes[i].indexOf('['));
+			retVal += ">" + name + ":nth-of-type(";
+			var index = nodes[i].substr(nodes[i].indexOf('[') + 1, nodes[i].indexOf(']') - nodes[i].indexOf('[') - 1);
+			retVal += index;
+			retVal += ")";
+		}
+	}
+	return retVal;
+}
+
 function convertPolicyFormat(p){
 	//This converts a //DIV[@id='c']>getAttribute:src to data structure used in contentScript.js: 
 	//{p:"//DIV[@id='c']>getAttribute", sp:"DIV[id='c']", xp:"", a:"getAttribute", n:"src"}
+	//gets rid of sub:
 	var pp = p;
 	var sp = "";
 	var xp = "";
@@ -36,28 +114,7 @@ function convertPolicyFormat(p){
 		p = p.substr(0, p.indexOf(">"));
 	}
 	if (p.indexOf("//") == 0){
-		sp = p.substr(2, p.indexOf("[") - 2);
-		p = p.substr(p.indexOf("[")+1);
-		var classes = "";
-		while (p.length > 0 && p[0]!="]"){
-			p = p.substr(1);		//get rid of @
-			var attrName = p.substr(0, p.indexOf("="));
-			p = p.substr(attrName.length + 2);		//get rid of ='
-			var attrValue = p.substr(0, p.indexOf("'"));
-			if (attrName == "class") {
-				//class names cannot have .* in them.  If forced to have, cannot visualize correctly.
-				classes += "." + attrValue;
-			}
-			else {
-				sp += "[";
-				sp += attrName;
-				if (attrValue.substr(0,2) ==".*") {sp += "$"; attrValue = attrValue.substr(2);}
-				if (attrValue.substr(-2,2) == ".*") {sp += "^"; attrValue = attrValue.substr(0, attrValue.length - 2);}
-				sp += "='" + attrValue + "']"
-			}
-			p = p.substr(p.indexOf("'")+1);
-		}
-		sp += classes;
+		sp = constructCSSFromXPath(p);
 	}
 	else {
 		xp = p;
@@ -736,7 +793,10 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 		else if (thisData[thisData.length - 1] == "\n") additional = thisData.substr(0, thisData.length - 1);
 		else additional = thisData;
 		if (additional == "ScrollTop" || additional == "ScrollLeft" || additional == "ScrollHeight" || additional == "ScrollWidth" || additional == "ClientTop" || additional == "ClientWidth" || additional == "ClientLeft" || additional == "ClientHeight" || additional == "GetBoundingClientRect") additional = "getSize";
-		if (additional == "document.write") nodeInfo = "";
+		if (additional == "document.write" || additional == "AppendChild" || additional == "RemoveChild" || additional == "InsertBefore" || additional == "ReplaceChild" || additional == "SetInnerHTML") {
+			nodeInfo = "";
+			additional = "!";
+		}
 		//Ignore base access (/html, document.cookie, etc.)
 		if (resource[0] == "/"){
 			var temp = resource.split("|")[0];
@@ -754,13 +814,13 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 					resource = temp;
 					additional = "#text" + additional;
 				}
-				var key = "//" + tagName + ">" + additional + (nodeInfo != "" ? ":" + nodeInfo : "");
-				if (textPushed.indexOf(key) == -1){
+				if (textPushed.indexOf(temp + additional + nodeInfo) == -1){
+					var key = "//" + tagName + ">" + additional + (nodeInfo != "" ? ":" + nodeInfo : "");
 					if (!tagPolicyValues[key]) tagPolicyValues[key] = 1;
 					else tagPolicyValues[key]++;
 					//make sure we don't push duplicates. Although the trace should not contain duplicates, we have shortened the records to text nodes, leaving only its parent in the resource, which might create duplicates.
 					dv.push({r:temp, a:additional, n:nodeInfo, t:tagName, shouldDelete:false});		//r = resource, a = apiname, n = argvalue, shouldDelete is a helper for getting rid of root-matching records.
-					textPushed.push(key);
+					textPushed.push(temp + additional + nodeInfo);
 				}
 			}
 			else {
@@ -954,7 +1014,7 @@ var afterTagPolicy = function(){
 		var an = [];
 		//see how many after this is talking about the same node
 		while (true){
-			if (!insert) insert = (deepNodes[j].a == "InsertBefore" || deepNodes[j].a == "AppendChild" || deepNodes[j].a == "document.write" || deepNodes[j].a == "ReplaceChild" || deepNodes[j].a == "SetInnerHTML");
+			if (!insert) insert = (deepNodes[j].a == "!");
 			if (deepNodes[j].a == "SetAttribute") setAttributes.push(deepNodes[j].n);
 			else if (deepNodes[j].a.indexOf("Set") == 0) setAttributes.push(deepNodes[j].a.substr(3).toLowerCase());
 			//(setattributes could have duplicate, but max of two dup)
@@ -982,7 +1042,7 @@ var afterTagPolicy = function(){
 		var an = [];
 		//see how many after this is talking about the same node
 		while (true){
-			if (!insert) insert = (shallowNodes[j].a == "InsertBefore" || shallowNodes[j].a == "AppendChild" || shallowNodes[j].a == "document.write" || shallowNodes[j].a == "ReplaceChild" || shallowNodes[j].a == "SetInnerHTML");
+			if (!insert) insert = (shallowNodes[j].a == "!");
 			if (shallowNodes[j].a == "SetAttribute") setAttributes.push(shallowNodes[j].n);
 			else if (shallowNodes[j].a.indexOf("Set") == 0) setAttributes.push(shallowNodes[j].a.substr(3).toLowerCase());
 			//(setattributes could have duplicate, but max of two dup)
@@ -1089,7 +1149,7 @@ var afterInsertionDeepPolicy = function(){
 	noi = [];
 	for (var i = 0; i < existingPolicies.length; i++){
 		//skip empty, special and tag policies in existing Policies.
-		if (existingPolicies == "" || existingPolicies[0] != "/" || existingPolicies.indexOf("[")==-1 ) continue;
+		if (existingPolicies[i] == "" || existingPolicies[i][0] != "/" || existingPolicies[i].indexOf("[")==-1 ) continue;
 		noi.push(convertPolicyFormat(existingPolicies[i]));
 	}
 	//get rid of sub: for root and parent candidate computation
@@ -1108,16 +1168,18 @@ var afterInsertionDeepPolicy = function(){
 		for (var k = 0; k < ps.length; k++){
 			var roots = {};				//{'scrollLeft': 3}
 			var parents = {};			//{'scrollLeft': 3}
+			var qualifyRoot = false;
+			var qualifyParent = false;
 			if (ps[k].xp != ""){
 				var l = ps[k].xp.split('/').length - 1;
 				if (l <= 3) continue;
-				for (var j = 0; j < shallowNodes.length; j++){
-					var sx = shallowNodes[j].r;
+				for (var j = 0; j < dv.length; j++){
+					var sx = dv[j].r;
 					if (ps[k].xp.indexOf(sx) != 0) {
 						continue;
 					}
-					//this shallowNodes matches as a prefix for a deeper nodes.
-					var key = ">" + shallowNodes[j].a + ((shallowNodes[j].n != "") ? (":" + shallowNodes[j].n) : "");
+					//this dv matches as a prefix for a deeper nodes.
+					var key = ">" + dv[j].a + ((dv[j].n != "") ? (":" + dv[j].n) : "");
 					if (roots.hasOwnProperty(key)) {
 						roots[key] += 1;
 					}
@@ -1126,58 +1188,67 @@ var afterInsertionDeepPolicy = function(){
 						parents[key] = 1;
 					}
 					//mark and get rid of this in violatingEntries in the future:
-					shallowNodes[j].shouldDelete = true;
+					dv[j].shouldDelete = true;
+				}
+				for (var key in roots){
+					if (roots[key] > 1 || ((!parents.hasOwnProperty(key)) && roots[key] == 1)){
+						var toPush = ps[k].p.substr(0, ps[k].p.indexOf(">")) + key;
+						if (policies.root.map(function(o){return o.p}).indexOf(toPush) == -1) policies.root.push({p:toPush, n: roots[key]});
+					}
+					else if (parents.hasOwnProperty(key) && roots[key] == 1){
+						var toPush = ps[k].p.substr(0, ps[k].p.indexOf(">")) + key;
+						if (policies.parent.map(function(o){return o.p}).indexOf(toPush) == -1) policies.parent.push({p:toPush, n: parents[key]});
+					}
 				}
 			}
 			else {
-				for (var j = 0; j < shallowNodes.length; j++){
-					var curNode = getElementByXpath(shallowNodes[j].r);
-					var qualifyRoot = false;
-					if ($(curNode).find(ps[k].sp).length > 0) qualifyRoot = true;			//find means search through descendants that matches the selector in argument.
-					if (qualifyRoot){
-						var qualifyParent = false;
-						var nodes = document.querySelectorAll(ps[k].sp);
-						for (var l = 0; l < nodes.length; l++){
-							if (curNode == nodes[l].parentNode) {
-								qualifyParent = true;
-								break;
+				for (var j = 0; j < dv.length; j++){
+					var curNode = getElementByXpath(dv[j].r);
+					var key = ">" + dv[j].a + ((dv[j].n != "") ? (":" + dv[j].n) : "");
+					if ($(curNode).find(ps[k].sp).length > 0) {
+						if (!qualifyRoot && $(curNode).children(ps[k].sp).length > 0) {
+							qualifyParent = true;
+							if (parents.hasOwnProperty(key)) {
+								//in the CSS selector scenario, parent may match multiple dvs, because the selector may match multiple elements.
+								parents[key] += 1;
 							}
+							else parents[key] = 1;
+							//still increment the root key, but we may ignore it later if qualifyRoot is false in the end.
 						}
-						var key = ">" + shallowNodes[j].a + ((shallowNodes[j].n != "") ? (":" + shallowNodes[j].n) : "");
+						else {
+							qualifyRoot = true;			//find means search through descendants that matches the selector in argument.
+							qualifyParent = false;		//must set previously set parent to false.
+						}
+						//always increment roots key.
 						if (roots.hasOwnProperty(key)) {
 							roots[key] += 1;
 						}
 						else roots[key] = 1;
-						if (qualifyParent){
-							parents[key] = 1;
-						}
 						//mark and get rid of this in violatingEntries in the future:
-						shallowNodes[j].shouldDelete = true;
+						dv[j].shouldDelete = true;
 					}
 				}
-			}
-			for (var key in roots){
-				if (roots[key] > 1 || ((!parents.hasOwnProperty(key)) && roots[key] == 1)){
-					var toPush = ps[k].p.substr(0, ps[k].p.indexOf(">")) + key;
-					if (policies.root.map(function(o){return o.p}).indexOf(toPush) == -1) policies.root.push({p:toPush, n: roots[key]});
+				if (qualifyRoot){
+					for (var key in roots){
+						var toPush = ps[k].p.substr(0, ps[k].p.indexOf(">")) + key;
+						if (policies.root.map(function(o){return o.p}).indexOf(toPush) == -1) policies.root.push({p:toPush, n: roots[key]});
+					}
 				}
-				else if (parents.hasOwnProperty(key) && roots[key] == 1){
-					var toPush = ps[k].p.substr(0, ps[k].p.indexOf(">")) + key;
-					if (policies.parent.map(function(o){return o.p}).indexOf(toPush) == -1) policies.parent.push({p:toPush, n: 1});
+				else if (qualifyParent){
+					for (var key in parents){
+						var toPush = ps[k].p.substr(0, ps[k].p.indexOf(">")) + key;
+						if (policies.parent.map(function(o){return o.p}).indexOf(toPush) == -1) policies.parent.push({p:toPush, n: parents[key]});
+					}
 				}
 			}
 		}
 	}
 	getRootPolicies(noi);
 	//get rid of marked shallowNodes:
-	for (var j = 0; j < shallowNodes.length; j++){
-		if (shallowNodes[j].shouldDelete){
-			for (var k = 0; k < dv.length; k++){
-				if (dv[k].r == shallowNodes[j].r) {
-					dv.splice(k, 1);
-					k--;
-				}
-			}
+	for (var i = 0; i < dv.length; i++){
+		if (dv[i].shouldDelete) {
+			dv.splice(i, 1);
+			i--;
 		}
 	}
 	//For the rest unclassified, prompt suspicious tag and ask the developer (user).
