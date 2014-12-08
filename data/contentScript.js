@@ -56,21 +56,21 @@ function constructCSSFromXPath(p){
 				if (attrValue == ".*") {attrValue = "";}		//has attribute is good enuf
 				else if (attrValue.substr(0,2) == ".*" && attrValue.substr(-2,2) != ".*") {
 					consistentModifier += "$='";
-					attrValue = attrValue.substr(2);
+					attrValue = attrValue.substr(2) + "'";
 				}
 				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) != ".*") {
 					consistentModifier += "^='";
-					attrValue = attrValue.substr(0, attrValue.length - 2);
+					attrValue = attrValue.substr(0, attrValue.length - 2) + "'";
 				}
 				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) == ".*") {
 					consistentModifier += "*='";
-					attrValue = attrValue.substr(2, attrValue.length - 4);
+					attrValue = attrValue.substr(2, attrValue.length - 4) + "'";
 				}
 				else {
 					//trivial case.
-					attrValue = "='" + attrValue;
+					attrValue = "='" + attrValue + "'";
 				}
-				consistentModifier += attrValue + "']";
+				consistentModifier += attrValue + "]";
 			}
 			p = p.substr(p.indexOf("'")+1);
 		}
@@ -800,8 +800,12 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 			{
 				if (additional == "document.write" || additional == "AppendChild" || additional == "RemoveChild" || additional == "InsertBefore" || additional == "ReplaceChild" || additional == "SetInnerHTML") {
 					//insertion deprecating to ! only happens on non-base accesses.
-					nodeInfo = "";
-					additional = "!";
+					var node = getElementByXpath(temp);
+					if (!node || node.offsetHeight <= 0.9 * document.body.scrollHeight || node.offsetWidth <= 0.9 * document.documentElement.offsetWidth || temp.split("/") > 4){
+						//also only deprecate when the node is not too large, or deep enough
+						nodeInfo = "";
+						additional = "!";
+					}
 				}
 				//Classify accesses by tagnames
 				var tagName = temp.split("/");
@@ -932,13 +936,27 @@ var afterTagPolicy = function(){
 	for (var k = 0; k < dv.length; k++){
 		remainingAccesses.push(dv[k]);
 	}
+	//Construct a hash: key = xpath, value = [modified attr]
+	var tempHash = {};
+	for (var k = 0; k < dv.length; k++){
+		if (dv[k].a == "SetAttribute") {
+			if (!tempHash.hasOwnProperty(dv[k].r)) tempHash[dv[k].r]=[];
+			tempHash[dv[k].r].push(dv[k].n);
+		}
+		else if (dv[k].a.indexOf("Set") == 0) {
+			if (!tempHash.hasOwnProperty(dv[k].r)) tempHash[dv[k].r]=[];
+			tempHash[dv[k].r].push(dv[k].a.substr(3).toLowerCase());
+		}
+	}
 	//Make sure all nodes here are still live, if they are not, get their parents until they're live.
 	//Also make sure the nodes have at least one non-style attribute.
-	var noAvailableAttrAsCandidate = function(node){
-		//returns true if node has no meaningful attribute to form a good selector
+	var noAvailableAttrAsCandidate = function(node, xpath){
+		//returns true if node has no meaningful attribute to form a good selector.
 		if (!node || !node.attributes) return true;
+		//, or it contains only attribute which it already sets.
 		for (var i = 0; i < node.attributes.length; i++){
-			if (node.attributes[i].name != "style") {
+			if (node.attributes[i].name != "style" && (!tempHash.hasOwnProperty(dv[k].r) || tempHash[dv[k].r].indexOf(node.attributes[i].name) == -1)) 
+			{
 				return false;
 			}
 		}
@@ -948,7 +966,7 @@ var afterTagPolicy = function(){
 		var xpath = remainingAccesses[k].r;
 		var node = getElementByXpath(xpath);
 		var level = 0;
-		while ((!node || noAvailableAttrAsCandidate(node)) && level < 100){
+		while ((!node || noAvailableAttrAsCandidate(node, xpath)) && level < 100){
 			//node is either dead or has no attribute, get its parent.
 			xpath = xpath.split('/');
 			if (xpath.length == 1) break;
