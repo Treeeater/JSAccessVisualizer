@@ -185,12 +185,12 @@ function constructCSSFromXPath(p){
 				}
 				else if (attrValue.substr(0,2) == ".*" && attrValue.substr(-2,2) != ".*") {
 					attrValue = attrValue.substr(2);
-					multipleModifiers[0] = "[class^='" + attrValue + "']";
+					multipleModifiers[0] = "[class$='" + attrValue + "']";
 					multipleModifiers[1] = "[class*=' " + attrValue + "']";
 				}
 				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) != ".*") {
 					attrValue = attrValue.substr(0, attrValue.length - 2);
-					multipleModifiers[0] = "[class$='" + attrValue + "']";
+					multipleModifiers[0] = "[class^='" + attrValue + "']";
 					multipleModifiers[1] = "[class*='" + attrValue + " ']";
 				}
 			}
@@ -199,11 +199,11 @@ function constructCSSFromXPath(p){
 				consistentModifier += attrName;
 				if (attrValue == ".*") {attrValue = "";}		//has attribute is good enuf
 				else if (attrValue.substr(0,2) == ".*" && attrValue.substr(-2,2) != ".*") {
-					consistentModifier += "^='";
+					consistentModifier += "$='";
 					attrValue = attrValue.substr(2);
 				}
 				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) != ".*") {
-					consistentModifier += "$='";
+					consistentModifier += "^='";
 					attrValue = attrValue.substr(0, attrValue.length - 2);
 				}
 				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) == ".*") {

@@ -41,12 +41,12 @@ function constructCSSFromXPath(p){
 				}
 				else if (attrValue.substr(0,2) == ".*" && attrValue.substr(-2,2) != ".*") {
 					attrValue = attrValue.substr(2);
-					multipleModifiers[0] = "[class^='" + attrValue + "']";
+					multipleModifiers[0] = "[class$='" + attrValue + "']";
 					multipleModifiers[1] = "[class*=' " + attrValue + "']";
 				}
 				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) != ".*") {
 					attrValue = attrValue.substr(0, attrValue.length - 2);
-					multipleModifiers[0] = "[class$='" + attrValue + "']";
+					multipleModifiers[0] = "[class^='" + attrValue + "']";
 					multipleModifiers[1] = "[class*='" + attrValue + " ']";
 				}
 			}
@@ -55,11 +55,11 @@ function constructCSSFromXPath(p){
 				consistentModifier += attrName;
 				if (attrValue == ".*") {attrValue = "";}		//has attribute is good enuf
 				else if (attrValue.substr(0,2) == ".*" && attrValue.substr(-2,2) != ".*") {
-					consistentModifier += "^='";
+					consistentModifier += "$='";
 					attrValue = attrValue.substr(2);
 				}
 				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) != ".*") {
-					consistentModifier += "$='";
+					consistentModifier += "^='";
 					attrValue = attrValue.substr(0, attrValue.length - 2);
 				}
 				else if (attrValue.substr(-2,2) == ".*" && attrValue.substr(0,2) == ".*") {
@@ -793,15 +793,16 @@ var inferModelFromRawViolatingRecords = function(rawData, targetDomain){
 		else if (thisData[thisData.length - 1] == "\n") additional = thisData.substr(0, thisData.length - 1);
 		else additional = thisData;
 		if (additional == "ScrollTop" || additional == "ScrollLeft" || additional == "ScrollHeight" || additional == "ScrollWidth" || additional == "ClientTop" || additional == "ClientWidth" || additional == "ClientLeft" || additional == "ClientHeight" || additional == "GetBoundingClientRect") additional = "getSize";
-		if (additional == "document.write" || additional == "AppendChild" || additional == "RemoveChild" || additional == "InsertBefore" || additional == "ReplaceChild" || additional == "SetInnerHTML") {
-			nodeInfo = "";
-			additional = "!";
-		}
 		//Ignore base access (/html, document.cookie, etc.)
 		if (resource[0] == "/"){
 			var temp = resource.split("|")[0];
 			if (temp != "/HTML[1]" && temp != "/HTML[1]/BODY[1]" && temp != "/HTML[1]/HEAD[1]")
 			{
+				if (additional == "document.write" || additional == "AppendChild" || additional == "RemoveChild" || additional == "InsertBefore" || additional == "ReplaceChild" || additional == "SetInnerHTML") {
+					//insertion deprecating to ! only happens on non-base accesses.
+					nodeInfo = "";
+					additional = "!";
+				}
 				//Classify accesses by tagnames
 				var tagName = temp.split("/");
 				tagName = tagName[tagName.length - 1];
@@ -895,7 +896,7 @@ var afterExistingPolicy = function(){
 				if (tagName == "#text") cache[tagName] = document.evaluate("count(//text())", document, null, 1, null).numberValue;
 				else cache[tagName] = document.getElementsByTagName(tagName).length;
 			}
-			if (tagPolicyValues[k] >= cache[tagName]/3) {
+			if (tagPolicyValues[k] >= cache[tagName]/4) {
 				policies.tag.push({p:k, n:tagPolicyValues[k]/cache[tagName]});
 			}
 		}
@@ -1099,6 +1100,32 @@ var afterTagPolicy = function(){
 	}
 	addSubPolicy(policies.adWidget);
 	addSubPolicy(policies.otherDeeps);
+	//remove some candidates if the same selector with a ! additional has been proposed
+	var toRemove = [];
+	for (var i = 0; i < policies.adWidget.length; i++){
+		if (policies.adWidget[i].a == "!"){
+			toRemove.push(policies.adWidget[i].p.substr(0, policies.adWidget[i].p.indexOf(">")));
+		}
+	}
+	for (var i = 0; i < policies.otherDeeps.length; i++){
+		if (policies.otherDeeps[i].a == "!"){
+			toRemove.push(policies.otherDeeps[i].p.substr(0, policies.otherDeeps[i].p.indexOf(">")));
+		}
+	}
+	for (var i = 0; i < toRemove.length; i++){
+		for (var j = 0; j < policies.adWidget.length; j++){
+			if (policies.adWidget[j].p.substr(0, policies.adWidget[i].p.indexOf(">")) == toRemove[i] && policies.adWidget[j].a != "!"){
+				policies.adWidget.splice(j,1);
+				j--;
+			}
+		}
+		for (var j = 0; j < policies.otherDeeps.length; j++){
+			if (policies.otherDeeps[j].p.substr(0, policies.otherDeeps[i].p.indexOf(">")) == toRemove[i] && policies.otherDeeps[j].a != "!"){
+				policies.otherDeeps.splice(j,1);
+				j--;
+			}
+		}
+	}
 	//done suggesting deep/insertion node selector candidates.
 	if (policies.adWidget.length > 0 || policies.otherDeeps.length > 0){
 		self.port.emit("postToInteractive", {type:"insertionOtherDeeps", p:policies, hd:tld, tpd:td, matches:matchedEntries, tve:dv.length, forceNewWindow:forceNewWindow});
