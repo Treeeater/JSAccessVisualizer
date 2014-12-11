@@ -647,57 +647,76 @@ var learnPatterns = function(insertionNodes){
 
 var simplifyNodeInfo = function(nodeInfo){
 	var policy = "";
+	var owned = false;
 	if (nodeInfo.indexOf("[o]") == 0) {
 		policy += "\\[o\\]";
+		owned = true;
 		nodeInfo = nodeInfo.substr(3);
 	}
-	if (nodeInfo.indexOf("<") == 0){
+	if (nodeInfo.indexOf("<") == 0 && owned){
+		nodeInfo = nodeInfo.substr(1);
 		nodeInfo = nodeInfo.replace(/\*/g, "\\*").replace(/\d+/g, "\\d*").replace(/\?/g, "\\?").replace(/\./g, "\\.").replace(/\+/g, "\\+");
-		var startingGT = nodeInfo.indexOf(">");
-		while (startingGT != -1){
-			if (nodeInfo.indexOf("'") < nodeInfo.indexOf('"')){
-				if (nodeInfo.substr(0, startingGT).split("'").length % 2 == 1) break;
-			}
+		var endingPos = nodeInfo.indexOf(">");
+		if (endingPos > -1){
+			var spacePos = nodeInfo.indexOf(" ");
+			var tagName = "";
+			if (spacePos > -1 && spacePos < endingPos) tagName = nodeInfo.substr(0, spacePos);
 			else {
-				if (nodeInfo.substr(0, startingGT).split('"').length % 2 == 1) break;
+				spacePos = nodeInfo.indexOf("\n");
+				if (spacePos > -1 && spacePos < endingPos) tagName = nodeInfo.substr(0, spacePos);
 			}
-			startingGT = nodeInfo.indexOf(">", startingGT + 1);
-		}
-		if (startingGT != -1) {
-			var openingTag = nodeInfo.substr(0, startingGT + 1);
-			if (openingTag.indexOf("<script") == 0 || openingTag.indexOf("<iframe") == 0 || openingTag.indexOf("<img") == 0) {
-				var tagName;
-				if (openingTag.indexOf("<script") == 0) tagName = "script";
-				if (openingTag.indexOf("<iframe") == 0) tagName = "iframe";
-				if (openingTag.indexOf("<img") == 0) tagName = "img";
-				if (openingTag.indexOf("src") > -1){
-					openingTag = openingTag.substr(openingTag.indexOf("src") + 3);
-					var seperator;
-					if (openingTag.indexOf("\"") == -1) seperator = "'";
-					else if (openingTag.indexOf("'") == -1) seperator = "\"";
-					else seperator = (openingTag.indexOf("\"") < openingTag.indexOf("'")) ? "\"" : "'";
-					openingTag = openingTag.substr(openingTag.indexOf(seperator) + 1);
-					var url = openingTag.substr(0, openingTag.indexOf(seperator));
-					var domain = getRootDomain(url);
-					openingTag = "<" + tagName + "[^<>]*src\\s*=\\s*" + seperator + "[^" + seperator + "]*" + domain + "/[^<>]*>";
-				}
-			}
-			policy += openingTag;
-			if (startingGT != nodeInfo.length - 1){
-				nodeInfo = nodeInfo.substr(startingGT + 1);
-				if (nodeInfo.length > 0 && nodeInfo[nodeInfo.length - 1] == ">"){
-					var endingLT = nodeInfo.lastIndexOf("<");
-					if (endingLT > 0) {
-						policy += "[^]*";
-						policy += nodeInfo.substr(endingLT);
-					}
-					else if (endingLT == -1) policy += "[^]*";
-					else policy += nodeInfo.substr(endingLT);
-				}
-				else policy += "[^]*";
-			}
+			policy += "<" + tagName + "[^*]>";
 		}
 		else policy += "[^]*";
+	}
+	else {
+		if (nodeInfo.indexOf("<") == 0){
+			var startingGT = nodeInfo.indexOf(">");
+			while (startingGT != -1){
+				if (nodeInfo.indexOf("'") < nodeInfo.indexOf('"')){
+					if (nodeInfo.substr(0, startingGT).split("'").length % 2 == 1) break;
+				}
+				else {
+					if (nodeInfo.substr(0, startingGT).split('"').length % 2 == 1) break;
+				}
+				startingGT = nodeInfo.indexOf(">", startingGT + 1);
+			}
+			if (startingGT != -1) {
+				var openingTag = nodeInfo.substr(0, startingGT + 1);
+				if (openingTag.indexOf("<script") == 0 || openingTag.indexOf("<iframe") == 0 || openingTag.indexOf("<img") == 0) {
+					var tagName;
+					if (openingTag.indexOf("<script") == 0) tagName = "script";
+					if (openingTag.indexOf("<iframe") == 0) tagName = "iframe";
+					if (openingTag.indexOf("<img") == 0) tagName = "img";
+					if (openingTag.indexOf("src") > -1){
+						openingTag = openingTag.substr(openingTag.indexOf("src") + 3);
+						var seperator;
+						if (openingTag.indexOf("\"") == -1) seperator = "'";
+						else if (openingTag.indexOf("'") == -1) seperator = "\"";
+						else seperator = (openingTag.indexOf("\"") < openingTag.indexOf("'")) ? "\"" : "'";
+						openingTag = openingTag.substr(openingTag.indexOf(seperator) + 1);
+						var url = openingTag.substr(0, openingTag.indexOf(seperator));
+						var domain = getRootDomain(url);
+						openingTag = "<" + tagName + "[^<>]*src\\s*=\\s*" + seperator + "[^" + seperator + "]*" + domain + "/[^<>]*>";
+					}
+				}
+				policy += openingTag;
+				if (startingGT != nodeInfo.length - 1){
+					nodeInfo = nodeInfo.substr(startingGT + 1);
+					if (nodeInfo.length > 0 && nodeInfo[nodeInfo.length - 1] == ">"){
+						var endingLT = nodeInfo.lastIndexOf("<");
+						if (endingLT > 0) {
+							policy += "[^]*";
+							policy += nodeInfo.substr(endingLT);
+						}
+						else if (endingLT == -1) policy += "[^]*";
+						else policy += nodeInfo.substr(endingLT);
+					}
+					else policy += "[^]*";
+				}
+			}
+			else policy += "[^]*";
+		}
 	}
 	if (policy == "") policy = nodeInfo;		//this is the scenario where the nodeInfo is not really 'nodeInfo', it's an argument from SetAttribute.
 	return policy;
