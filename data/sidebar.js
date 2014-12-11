@@ -210,12 +210,20 @@ function existingPoliciesLoaded(msg){
 
 addon.port.on("existingPoliciesLoaded", existingPoliciesLoaded);
 
-function changeThreshold(){
-	addon.port.emit("changeThreshold","");
+function changeOvermatchThreshold(){
+	addon.port.emit("changeOvermatchThreshold","");
 }
 
-addon.port.on("changedThreshold", function(msg){
-	$("#matchThreshold").html(msg);
+function changeTagThreshold(){
+	addon.port.emit("changeTagThreshold","");
+}
+
+addon.port.on("changedOvermatchThreshold", function(msg){
+	$("#overmatchThreshold").html(msg);
+});
+
+addon.port.on("changedTagThreshold", function(msg){
+	$("#tagThreshold").html(msg);
 });
 
 addon.port.on("recordFileRawData", function(msg){

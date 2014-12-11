@@ -2,6 +2,7 @@ var outputToFile = true;
 var clearContentUponNav = true;
 var logMsgCount = 0;
 var matchRateThreshold = 1;		// <= is ok, > is not.  higher the relaxer, lower the stricter.
+var tagThreshold = 0.25;
 
 var getElementByXpath = function (path) {
 	try {
@@ -14,7 +15,7 @@ var getElementByXpath = function (path) {
 		return document.evaluate(path, document, null, 9, null).singleNodeValue;
 	}
 	catch(ex){
-		alert(path);
+		alert("document.evaluate error in contentScript.js: " + path);
 	}
 };
 
@@ -130,7 +131,7 @@ var getElementsByCSS = function (selector) {
     try {
 		return document.querySelectorAll(selector);
 	}
-	catch(ex){alert(selector);}
+	catch(ex){alert("getElementByCSS error in contentScript.js: " + selector);}
 };
 
 var consoleLog = function(msg){
@@ -233,7 +234,7 @@ var getSoloPattern = function (abs){
 				var protocol = v.substr(0, v.indexOf("/"));
 				var domain = v.substr(v.indexOf("/")+2);
 				if (domain.indexOf("/") > -1) domain = domain.substr(0, domain.indexOf("/"));
-				domain = ".*" + domain.split(".").splice(-2, 2).join("\\.");
+				domain = "[^/]*" + domain.split(".").splice(-2, 2).join("\\.");
 				attrValues[i] = protocol + "//" + domain + ".*";
 			}
 			if (attrNames[i] == "class") c.push(attrValues[i]);
@@ -282,7 +283,7 @@ var getSoloPattern = function (abs){
 		try {
 			if (document.querySelectorAll(retVal.sp).length == 1) return retVal;
 		}
-		catch(ex){alert(retVal.sp);}
+		catch(ex){alert("GetSoloPattern error in contentScript.js: " + retVal.sp);}
 	}
 	//no selector can be unique, set sp to empty and p to xpath
 	retVal.p = retVal.xp;
@@ -665,7 +666,7 @@ var simplifyNodeInfo = function(nodeInfo){
 				spacePos = nodeInfo.indexOf("\n");
 				if (spacePos > -1 && spacePos < endingPos) tagName = nodeInfo.substr(0, spacePos);
 			}
-			policy += "<" + tagName + "[^*]>";
+			policy += "<" + tagName + "[^]*>";
 		}
 		else policy += "[^]*";
 	}
@@ -919,7 +920,7 @@ var afterExistingPolicy = function(){
 				if (tagName == "#text") cache[tagName] = document.evaluate("count(//text())", document, null, 1, null).numberValue;
 				else cache[tagName] = document.getElementsByTagName(tagName).length;
 			}
-			if (tagPolicyValues[k] >= cache[tagName]/4) {
+			if (tagPolicyValues[k] >= cache[tagName]*tagThreshold) {
 				policies.tag.push({p:k, n:tagPolicyValues[k]/cache[tagName]});
 			}
 		}
@@ -1497,11 +1498,19 @@ window.addEventListener('beforeunload',function(){
 
 self.port.emit("requestOutputToFile","");			//request update outputToFile variable.
 
-self.port.on("changeThreshold", function(){
-	var a = window.prompt("Set the matching threshold, the higher the more relaxed.", "1");
+self.port.on("changeOvermatchThreshold", function(){
+	var a = window.prompt("Set the overmatching threshold, the higher the more relaxed.", "1");
 	if (!!a){
 		matchRateThreshold = parseFloat(a);
-		self.port.emit("changedThreshold",a);
+		self.port.emit("changedOvermatchThreshold",a);
+	}
+});
+
+self.port.on("changeTagThreshold", function(){
+	var a = window.prompt("Set the tag threshold, the lower the more relaxed.", "0.25");
+	if (!!a){
+		tagThreshold = parseFloat(a);
+		self.port.emit("changedTagThreshold",a);
 	}
 });
 

@@ -10,7 +10,8 @@ function resetContent(shouldResetThreshold){
 	cacheID = undefined;
 	cacheXPath = undefined;
 	$("#mainList").html("");
-	if (!!shouldResetThreshold) $("#matchThreshold").html("1");
+	if (!!shouldResetThreshold) $("#overmatchThreshold").html("1");
+	if (!!shouldResetThreshold) $("#tagThreshold").html("0.25");
 }
 
 function pickFile(){
