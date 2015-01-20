@@ -300,6 +300,7 @@ var getPatterns = function(constABS, agg){
 	for (var i = 0; i < constABS.length; i++){
 		abs.push(constABS[i]);
 	}
+	var heuristics = ["sponsor", "ad", "leaderboard", "widget", "twit", "facebook", "twtt"];
 	while (abs.length > 0 && iteration < MAXITERATION){
 		iteration++;
 		var patterns = [];
@@ -443,6 +444,13 @@ var getPatterns = function(constABS, agg){
 		var maxPattern = "";
 		var maxMatchRate = 10000;		//initial value doesn't matter
 		for (i = 0; i < patterns.length; i++){
+			//favor heuristics:
+			for (var j = 0; j < heuristics.length; j++){
+				if (patterns[i].p.indexOf(heuristics[j]) > -1){
+					patterns[i].n = maxMatchNumber + 10000;		//use this if it matches heuristics. //do not want to simply break the outerloop if there are multiple attrvalues featuring heuristics.
+					break;
+				}
+			}
 			if (maxMatchNumber < patterns[i].n){
 				maxMatchNumber = patterns[i].n;
 				maxPattern = patterns[i].p;
@@ -1152,13 +1160,13 @@ var afterTagPolicy = function(){
 	}
 	for (var i = 0; i < toRemove.length; i++){
 		for (var j = 0; j < policies.adWidget.length; j++){
-			if (policies.adWidget[j].p.substr(0, policies.adWidget[i].p.indexOf(">")) == toRemove[i] && policies.adWidget[j].a != "!"){
+			if (policies.adWidget[j].p.substr(0, policies.adWidget[j].p.indexOf(">")) == toRemove[i] && policies.adWidget[j].a != "!"){
 				policies.adWidget.splice(j,1);
 				j--;
 			}
 		}
 		for (var j = 0; j < policies.otherDeeps.length; j++){
-			if (policies.otherDeeps[j].p.substr(0, policies.otherDeeps[i].p.indexOf(">")) == toRemove[i] && policies.otherDeeps[j].a != "!"){
+			if (policies.otherDeeps[j].p.substr(0, policies.otherDeeps[j].p.indexOf(">")) == toRemove[i] && policies.otherDeeps[j].a != "!"){
 				policies.otherDeeps.splice(j,1);
 				j--;
 			}
