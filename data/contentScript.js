@@ -199,10 +199,10 @@ function prepareSetAttributes(e, b){
 		if (arr[i].length == 0 || arr[i][0] != "/") continue;
 		var first = arr[i].split(">")[0];
 		var second = arr[i].split(">")[1];
-		if (second.indexOf("SetAttribute")==0){
+		if (!!second && second.indexOf("SetAttribute")==0){
 			second = second.substr(13);
 		}
-		else if (second.indexOf("Set")==0){
+		else if (!!second && second.indexOf("Set")==0){
 			second = second.substr(3).toLowerCase();
 		}
 		else if (second == "ClassName" || second == "ClassList"){
