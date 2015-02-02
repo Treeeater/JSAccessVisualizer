@@ -399,13 +399,13 @@ function handleMessage(event){
 		}
 		var msg = {};
 		if (d.type == "outputExtra") {
-			msg.fileName = "policies\\extra\\" + d.hd + "\\" + d.tpd + ".txt";
+			msg.fileName = "extra\\" + d.hd + "\\" + d.tpd + ".txt";
 		}
 		else if (d.type == "outputBase") {
-			msg.fileName = "policies\\" + d.tpd + ".txt";
+			msg.fileName = d.tpd + ".txt";
 		}
 		else if (d.type == "outputGeneric"){
-			msg.fileName = "policies\\extra\\" + d.hd + "\\generic.txt";
+			msg.fileName = "extra\\" + d.hd + "\\generic.txt";
 		}
 		msg.content = d.policy;
 		if (!!d.policy) {
