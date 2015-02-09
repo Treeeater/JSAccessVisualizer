@@ -1,8 +1,8 @@
 README: Visualizer addon for FireInspector
 
-To download the FireInspector, click <a href="http://www.cs.virginia.edu/yuchen/visualizer/packaged/fireinspector.rar">here</a>.
+To download the FireInspector, click <a href="http://www.cs.virginia.edu/yuchen/oakland15/packaged/fireinspector.rar">here</a>.
 
-To download the visualizer extension, click <a href="http://www.cs.virginia.edu/yuchen/visualizer/packaged/visualizer.xpi">here</a>.
+To download the visualizer extension, click <a href="http://www.cs.virginia.edu/yuchen/oakland15/packaged/visualizer.xpi">here</a>.
 
 1) FireInspector (A modification of Mozilla Firefox Nightly, retrieved on 2014-06-03, version number 32.0a1 (2014-11-05)) requires Windows 7/8, .NET framework, and Visual Studio 2013 redist package to run.  Please note that you need to install both x86 and x64 packages for VS2013 redist.  These packages are small (<10MB each) to download and install.  If you downloaded a larger version, chances are that you are installing a wrong package.  If you are getting 'missing MSVCR120.dll' error, it is due to the incorrect setup of redist packages.
 
