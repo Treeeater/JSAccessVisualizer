@@ -3,6 +3,7 @@ var clearContentUponNav = true;
 var logMsgCount = 0;
 var matchRateThreshold = 1;		// <= is ok, > is not.  higher the relaxer, lower the stricter.
 var tagThreshold = 0.25;
+var obtained = false;
 
 var getElementByXpath = function (path) {
 	try {
@@ -168,9 +169,14 @@ self.port.on("nav", function(msg){
 
 self.port.on("obtainNow", function(){
 	self.port.emit("obtained",document.visualizerOutputToString());
+	obtained = true;
 });
 
 self.port.on("checkViolations", function(){
+	if (!obtained) {
+		alert("Collect and visualize scientists first");
+		return false;
+	}
 	var violationString = document.checkPolicyToString();
 	var retVal = {v:[], m:[]};
 	var rawData = violationString.replace(/\r/g,'');					//get rid of file specific \r
@@ -1521,10 +1527,12 @@ self.port.on("outputToFile", function(msg){
 
 self.port.on("outputToFileAdd", function(msg){
 	document.visualizerOutputToFileAdd();
+	alert("File written to the profile directory of your Firefox. File name is the same as the URL of this site");
 });
 
 self.port.on("checkPolicyAndOutputToFile", function(msg){
 	document.checkPolicyToFile();
+	alert("File written to the profile directory of your Firefox. File name is the same as the URL of this site");
 });
 
 self.port.on("checkPolicyAndDisplay", function(msg){

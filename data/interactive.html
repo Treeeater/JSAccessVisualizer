@@ -6,35 +6,35 @@
 </head>
 <body>
 <h2 align="center"><span>Host domain: </span><span id="hd"></span></h2>
-<h3 align="center"><span>3P domain: </span><span id="tpd"></span></h3>
-<h4 align="center"><span>Matched entries #: </span><span id="mn"></span></h3>
-<h4 align="center"><span>Remaining violating entries #: </span><span id="rvn"></span></h3>
+<h2 align="center"><span>Third-party script domain: </span><span id="tpd"></span></h3>
+<h2 align="center"><span>Matched access entries #: </span><span id="mn"></span></h3>
+<h2 align="center"><span>Remaining violating access entries #: </span><span id="rvn"></span></h3>
+<div class="typeHeader gray"><span class="categoryTitle">Base Policy Candidates:</span><input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<ul id = "base" class="hidden"></ul>
+</div>
+<div class="typeHeader gray"><span class="categoryTitle">Review Existing Site-Specific Policies (if any):</span>
+<ul id = "existing" class="hidden"></ul>
+</div>
+<div class="typeHeader gray"><span class="categoryTitle">Tag policy candidates:</span><input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<ul id = "tag" class="hidden"></ul>
+</div>
+<div class="typeHeader gray"><span class="categoryTitle">Nodes of interest (insertion) candidates:</span><input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<ul id = "adWidget" class="hidden"></ul>
+</div>
+<div class="typeHeader gray"><span class="categoryTitle">Nodes of interest (others) Candidates:</span><input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<ul id = "otherDeeps" class="hidden"></ul>
+</div>
+<div class="typeHeader gray"><span class="categoryTitle">Root policy candidates:</span><input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<ul id = "root" class="hidden"></ul>
+</div>
+<div class="typeHeader gray"><span class="categoryTitle">Parent policy candidates:</span><input type="checkbox" checked></input><button class="addPolicy">Add</button>
+<ul id = "parent" class="hidden"></ul>
+</div>
 <div align="center">
 <input onclick = "checkAll(event)" type="checkbox" checked>Check all!</input>
 </div>
 <div align="center">
 <button id="nextButton" onclick="next()" style="width:400px; height:50px; margin-top:20px">Next</button>
-</div>
-<div class="typeHeader gray"><span class="categoryTitle">Base:</span><input type="checkbox" checked></input><button class="addPolicy">Add</button>
-<ul id = "base" class="hidden"></ul>
-</div>
-<div class="typeHeader gray"><span class="categoryTitle">Exisiting Policies:</span>
-<ul id = "existing" class="hidden"></ul>
-</div>
-<div class="typeHeader gray"><span class="categoryTitle">Tag:</span><input type="checkbox" checked></input><button class="addPolicy">Add</button>
-<ul id = "tag" class="hidden"></ul>
-</div>
-<div class="typeHeader gray"><span class="categoryTitle">AdWidget:</span><input type="checkbox" checked></input><button class="addPolicy">Add</button>
-<ul id = "adWidget" class="hidden"></ul>
-</div>
-<div class="typeHeader gray"><span class="categoryTitle">OtherDeeps:</span><input type="checkbox" checked></input><button class="addPolicy">Add</button>
-<ul id = "otherDeeps" class="hidden"></ul>
-</div>
-<div class="typeHeader gray"><span class="categoryTitle">Root:</span><input type="checkbox" checked></input><button class="addPolicy">Add</button>
-<ul id = "root" class="hidden"></ul>
-</div>
-<div class="typeHeader gray"><span class="categoryTitle">Parent:</span><input type="checkbox" checked></input><button class="addPolicy">Add</button>
-<ul id = "parent" class="hidden"></ul>
 </div>
 <script src='interactive.js'></script>
 </body>

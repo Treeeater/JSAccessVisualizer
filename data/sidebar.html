@@ -18,33 +18,40 @@
 	</style>
 	</head>
 	<body>
-		<h2 align="center">Visualizer v0.9</h2>
+		<h2 align="center">Visualizer v1.0</h2>
 		<hr/>
+		To start Visualizer:
 		<div class="item">
-			<button onclick='pickFile();'>Choose File</button>
-			<button onclick='outputToFile();'>outputToFile</button>
-			<button onclick='outputToFileAdd();'>withAdditionalInfo</button>
-		</div>
-		<div class="item">
-			<button onclick='obtainNow();'>Obtain Now!</button>
+			<button onclick='obtainNow();'>Display and visualize accesses</button>
 			<!--<button onclick='generalizeModelClicked();'>Generalize</button>-->
-			<button onclick='checkPolicyAndDisplay();'>Display check</button>
-			<button onclick='checkPolicyAndOutputToFile();'>Output check</button>
+			<!--<button onclick='checkPolicyAndDisplay();'>Display check</button>-->
 		</div>
 		<!--<div class="item">
 			<button onclick='loadModel();'>Load Model</button>
 			<button onclick='outputModel();'>Output Model</button>
 		</div>-->
+		<hr/>
+		To start PolicyGenerator:<br/>
+		&nbsp;&nbsp;&nbsp;&nbsp;First, click check violations button below:
 		<div class="item">
-			<button onclick='checkViolations();'>Check Violations</button>
+			<button onclick='checkViolations();'>Check violations</button>
+		</div>
+		<br/>
+		&nbsp;&nbsp;&nbsp;&nbsp;Then, click on red dots to start PolicyGenerator.
+			<!--<button onclick='pickFile();'>Choose File</button>
+			<button onclick='outputToFile();'>outputToFile</button>-->
+		<hr/>
+		To output:
+		<div class="item">
+			<button onclick='outputToFileAdd();'>Output all resource accesses to file</button><br/><br/>
+			<button onclick='checkPolicyAndOutputToFile();'>Output access violations to file</button>
 		</div>
 		<div class="item">
-			<h3> Configurable settings for policy generator: </h3>
-			Overmatch Threshold: <span id="overmatchThreshold" onclick = "changeOvermatchThreshold();" style="cursor:default">1</span><br/>
-			Tag Policy Threshold: <span id="tagThreshold" onclick = "changeTagThreshold();" style="cursor:default">0.25</span><br/>
+			Overmatch Threshold: <span id="overmatchThreshold" onclick = "changeOvermatchThreshold();" style="cursor:pointer; color:blue; text-decoration:underline;">1</span><br/>
+			Tag Policy Threshold: <span id="tagThreshold" onclick = "changeTagThreshold();" style="cursor:pointer; color:blue; text-decoration:underline;">0.25</span><br/>
 		</div>
 		<div class="item">
-			<input type="checkbox" id="outputFileCB">Record accesses to file when page leaves.</input>
+			<input type="checkbox" id="outputFileCB">Record accesses to file upon page unload.</input>
 		</div>
 		<hr/>
 		<ul id="mainList" class="no_bullet">
