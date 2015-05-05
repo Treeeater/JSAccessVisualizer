@@ -14,7 +14,7 @@ To download the visualizer extension, click <a href="http://www.cs.virginia.edu/
 
 4) Once you are able to navigate and browse a complicated site (say, nytimes.com) with FireInspector without problems (other than slow performance), go ahead and drag Visualizer.xpi into FireInspector.  A sidebar will appear after successful installation of Visualizer extension.
 
-5) To visualize accesses, click 'Obtain Now!' button on the left of the sidebar panel.  Click to expand or collapse the individual third-party domains and their access categories.  Mouse over the individual accesses to highlight the elements on the page.  When mousing over any access, pink color indicates that the element is visible, purple indicates invisible.  Clicking on a pink entry will auto-scroll the page to bring that element into view.  Clicking on a purple entry will pop up an alert window displaying the content of that node.  Green entries denotes third-party owned nodes, and are often advertisements and social widgets inserted into the page.  Click "withAdditionalInfo" to output all accesses of all third-party scripts as a text file (named the URL of this page) to the current working directory.
+5) Follow instructions on the extension sidebar to display all resource accesses on the page.  Click to expand or collapse the individual third-party domains and their access categories.  Mouse over the individual accesses to highlight the elements on the page.  When mousing over any access, pink color indicates that the element is visible, purple indicates invisible.  Clicking on a pink entry will auto-scroll the page to bring that element into view.  Clicking on a purple entry will pop up an alert window displaying the content of that node.  Green entries denotes third-party owned nodes, and are often advertisements and social widgets inserted into the page.  Again, follow instructions on the sidebar to output all accesses of all third-party scripts as a text file (named the URL of this page) to the current profile directory.
 
 6) For policy generation, follow these steps:
 
@@ -33,7 +33,7 @@ To download the visualizer extension, click <a href="http://www.cs.virginia.edu/
 	
 	(*) If you don't have base policy for A_domain, i.e. A_domain.com.txt under \policies folder, FireInspector will not output any violations with regard to that domain.  If you want it to check violations, at least put an empty file with the name of A_domain.com.txt.
 
-9) Click "OutputCheck" button to output violated accesses as text file to current working directory, click the little calculator icon to the right of each domain to start interactive policy generator.
+9) Follow the instructions on the sidebar to invoke the policyGenerator for domains with violating accesses.  Note that the PolicyGenerator will not run for domains without a base policy (an empty base policy file is required even when no base policy is necessary) or violating accesses.
 
 10) Generated policies are going to be stored in \policies folder.
 
