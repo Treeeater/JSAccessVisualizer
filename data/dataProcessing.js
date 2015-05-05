@@ -163,7 +163,7 @@ function RecordsPerSite(url){
 			return false;
 		}
 		if (r.split("/").splice(-1,1)[0].indexOf("INPUT")==0){
-			if (a.indexOf("getvalue")!=-1) return true;
+			if (a.indexOf("getvalue")!=-1 || a.indexOf("checked")!=-1) return true;
 		}
 		if (a.indexOf('get')==-1) return false;
 		//given the additional string, return if this is a get access
@@ -399,13 +399,13 @@ function handleMessage(event){
 		}
 		var msg = {};
 		if (d.type == "outputExtra") {
-			msg.fileName = "policies\\extra\\" + d.hd + "\\" + d.tpd + ".txt";
+			msg.fileName = "extra\\" + d.hd + "\\" + d.tpd + ".txt";
 		}
 		else if (d.type == "outputBase") {
-			msg.fileName = "policies\\" + d.tpd + ".txt";
+			msg.fileName = d.tpd + ".txt";
 		}
 		else if (d.type == "outputGeneric"){
-			msg.fileName = "policies\\extra\\" + d.hd + "\\generic.txt";
+			msg.fileName = "extra\\" + d.hd + "\\generic.txt";
 		}
 		msg.content = d.policy;
 		if (!!d.policy) {

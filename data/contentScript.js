@@ -199,10 +199,10 @@ function prepareSetAttributes(e, b){
 		if (arr[i].length == 0 || arr[i][0] != "/") continue;
 		var first = arr[i].split(">")[0];
 		var second = arr[i].split(">")[1];
-		if (second.indexOf("SetAttribute")==0){
+		if (!!second && second.indexOf("SetAttribute")==0){
 			second = second.substr(13);
 		}
-		else if (second.indexOf("Set")==0){
+		else if (!!second && second.indexOf("Set")==0){
 			second = second.substr(3).toLowerCase();
 		}
 		else if (second == "ClassName" || second == "ClassList"){
@@ -309,8 +309,9 @@ var getSoloPattern = function (abs){
 	//fall back to attempting to use all attributes, finding until one unique selector is found.
 	var na = node.attributes;
 	for (var i = 0; i < na.length; i++){
-		if (na[i].name == "class" || na[i].name == "id" || !checkAgainstForbiddenAttr(node.nodeName, na[i].name)) continue;
-		attrNames.push(na[i].name);
+		var attrName = na[i].name;
+		if (attrName == "class" || attrName == "id" || !checkAgainstForbiddenAttr(node.nodeName, attrName) || !checkAppropriateAttributes(attrName)) continue;
+		attrNames.push(attrName);
 		attrValues.push(na[i].value);
 		retVal.sp = constructSP();
 		retVal.p = constructP();
@@ -579,6 +580,12 @@ var getPatterns = function(constABS, agg){
 	return returnValue;
 }
 
+var checkAppropriateAttributes = function(attrName){
+	if (attrName == "style" || attrName == "width" || attrName == "height" || attrName == "frameborder" || attrName == "framespacing" || attrName == "scrolling") return false;
+	if (attrName.indexOf("margin")>-1) return false;
+	return true;
+}
+
 var learnPatterns = function(insertionNodes){
 	//Obtain real node handles first.
 	var i,j;
@@ -593,7 +600,7 @@ var learnPatterns = function(insertionNodes){
 			var attributeCandidates = {};
 			for (j = 0; j < a.length; j++){
 				var temp = a[j].name;
-				if (temp == "style") continue;		//don't use style as identifier.
+				if (!checkAppropriateAttributes(temp)) continue;		//don't use certain attributes as identifier.
 				if (checkAgainstForbiddenAttr(node.nodeName, temp)){
 					if (temp == "class") {
 					//special treatment for class
@@ -960,7 +967,7 @@ var afterExistingPolicy = function(){
 			nodeName = nodeName.substr(0,nodeName.indexOf('>'));
 			if (!cache[nodeName]) {
 				if (nodeName == "#text") cache[nodeName] = document.evaluate("count(//text())", document, null, 1, null).numberValue;
-				else cache[nodeName] = document.getElementsBynodeName(nodeName).length;
+				else cache[nodeName] = document.getElementsByTagName(nodeName).length;
 			}
 			if (tagPolicyValues[k] >= cache[nodeName]*tagThreshold) {
 				policies.tag.push({p:k, n:tagPolicyValues[k]/cache[nodeName]});
@@ -1007,7 +1014,7 @@ var afterTagPolicy = function(){
 		if (!node || !node.attributes) return true;
 		//, or it contains only attribute which it already sets.
 		for (var i = 0; i < node.attributes.length; i++){
-			if (node.attributes[i].name != "style" && checkAgainstForbiddenAttr(dv[k].t, node.attributes[i].name))
+			if (checkAppropriateAttributes(node.attributes[i].name) && checkAgainstForbiddenAttr(dv[k].t, node.attributes[i].name))
 			{
 				return false;
 			}
