@@ -174,7 +174,7 @@ self.port.on("obtainNow", function(){
 
 self.port.on("checkViolations", function(){
 	if (!obtained) {
-		alert("Collect and visualize scientists first");
+		alert("Click 'display and visualize accesses' button first (on your left).");
 		return false;
 	}
 	var violationString = document.checkPolicyToString();
